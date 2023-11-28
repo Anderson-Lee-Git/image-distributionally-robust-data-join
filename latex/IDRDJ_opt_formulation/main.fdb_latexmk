@@ -1,7 +1,7 @@
 # Fdb version 3
-["pdflatex"] 1700557480 "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.tex" "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.pdf" "main" 1700557481
-  "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.aux" 1700557481 686 4ce905362b6645b598ea182482e9aeed ""
-  "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.tex" 1700557480 9097 61aff0a17c7dd910ed436658bc855ec2 ""
+["pdflatex"] 1700604907 "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.tex" "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.pdf" "main" 1700604908
+  "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.aux" 1700604908 686 4ce905362b6645b598ea182482e9aeed ""
+  "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.tex" 1700604907 9413 54a478519cbaa957b37dc357bf1c7d78 ""
   "/usr/local/texlive/2021/texmf-dist/fonts/map/fontname/texfonts.map" 1577235249 3524 cb3e574dea2d1052e39280babc910dc8 ""
   "/usr/local/texlive/2021/texmf-dist/fonts/tfm/public/amsfonts/cmextra/cmex7.tfm" 1246382020 1004 54797486969f23fa377b128694d548df ""
   "/usr/local/texlive/2021/texmf-dist/fonts/tfm/public/amsfonts/symbols/msam10.tfm" 1246382020 916 f87d7c45f9c908e672703b83b72241a3 ""
@@ -162,13 +162,13 @@
   "/usr/local/texlive/2021/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1616695603 5169178 a2ce6e2d73f603b690db6777d06dbccb ""
   "/usr/local/texlive/2021/texmf-var/web2c/pdftex/pdflatex.fmt" 1648773755 2724740 60495336629e4431779718f6661d2b3f ""
   "/usr/local/texlive/2021/texmf.cnf" 1616695596 577 4c1911a7228e554c6032256d3cf5567d ""
-  "main.aux" 1700557481 686 4ce905362b6645b598ea182482e9aeed "pdflatex"
-  "main.out" 1700557481 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
-  "main.tex" 1700557480 9097 61aff0a17c7dd910ed436658bc855ec2 ""
+  "main.aux" 1700604908 686 4ce905362b6645b598ea182482e9aeed "pdflatex"
+  "main.out" 1700604907 0 d41d8cd98f00b204e9800998ecf8427e "pdflatex"
+  "main.tex" 1700604907 9413 54a478519cbaa957b37dc357bf1c7d78 ""
   (generated)
-  "main.out"
+  "main.pdf"
   "main.aux"
+  "main.out"
   "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.log"
   "/Users/anderson/Documents/image-distributionally-robust-data-join/latex/IDRDJ_opt_formulation/main.pdf"
   "main.log"
-  "main.pdf"

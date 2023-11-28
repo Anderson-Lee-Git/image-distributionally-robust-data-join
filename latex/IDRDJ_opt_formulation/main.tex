@@ -287,6 +287,11 @@
     \textbf{Why don't we just get a closed form solution from Lagrangian to solve the constraint problem?}
     Maybe try to start with the original form instead of multi-class form.
     \section*{Note}
-    The lagrangian in the paper that solves for projection is not used in the code base. The code base 
-    simply solves the optimization problem for projection with constraint requirements.
+    \begin{enumerate}
+        \item The lagrangian in the paper that solves for projection is not used in the code base. The code base 
+        simply solves the optimization problem for projection with constraint requirements.
+        \item Another thing came up when I was working on auto-encoder for generating KNN pairs in image embeddings is 
+        that there are too many data points. It's not feasible to do KNN on all of them. We might want to consider 
+        an alternative.
+    \end{enumerate}
 \end{document}
