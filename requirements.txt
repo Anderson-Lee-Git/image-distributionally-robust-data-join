@@ -1,9 +1,12 @@
-torch=2.1.0+cu118
-torchvision=0.16.0+cu118
-torchaudio=2.1.0+cu118
-numpy=1.24.1
-pandas=2.1.3
-ipykernel=6.26.0
-h5py=3.10.0
-python-decouple=3.8
-matplotlib=3.8.1
+torch==2.0.1 # cu117
+torchvision==0.15.2
+torchaudio==2.0.2
+numpy==1.24.1
+pandas==2.1.3
+ipykernel==6.26.0
+h5py==3.10.0
+python-decouple==3.8
+matplotlib==3.8.1
+tensorboard==2.15.1
+wandb
+tqdm

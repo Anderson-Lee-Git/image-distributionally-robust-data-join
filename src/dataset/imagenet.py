@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 import numpy as np
 import h5py
 from decouple import Config, RepositoryEnv
-config = Config(RepositoryEnv("../../.env"))
+config = Config(RepositoryEnv(".env"))
 
 class ImagenetDataset(Dataset):
     def __init__(self, transform=None, split='train', size=256, crop=224, subset=1.0):
