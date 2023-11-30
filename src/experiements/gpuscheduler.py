@@ -19,7 +19,7 @@ def execute_and_return(strCMD):
 
 # https://github.com/TimDettmers/sched/blob/master/gpuscheduler/core.py#L156
 class HyakScheduler(object):
-    def __init__(self, verbose=False, use_gres=False, use_wandb=False, exp_name=None):
+    def __init__(self, verbose=False, use_gres=False, use_wandb=False, exp_name=None, account="jamiemmt", partition="gpu-a100"):
         print(os.curdir)
         self.jobs = []
         self.verbose = verbose
@@ -28,6 +28,8 @@ class HyakScheduler(object):
         self.use_wandb = use_wandb
         self.exp_name = exp_name
         self.config = Config(RepositoryEnv(".env"))
+        self.account = account
+        self.partition = partition
 
     def update_host_config(self, name, mem_threshold, util_threshold):
         pass
@@ -65,9 +67,9 @@ class HyakScheduler(object):
             lines.append('#!/bin/bash')
             lines.append('#')
             lines.append('#SBATCH --job-name={0}'.format(script_file))
-            if self.config("ACCOUNT") != '':
-                lines.append('#SBATCH --account={0}'.format(self.config("ACCOUNT")))
-            lines.append('#SBATCH --partition={0}'.format(self.config("PARTITION")))
+            if self.account != '':
+                lines.append('#SBATCH --account={0}'.format(self.account))
+            lines.append('#SBATCH --partition={0}'.format(self.partition))
             lines.append('#')
             lines.append('#SBATCH --nodes={0}'.format(nodes))
             if single_process:

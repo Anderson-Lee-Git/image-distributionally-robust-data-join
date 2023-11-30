@@ -8,28 +8,39 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ExponentialLR
 from tqdm import tqdm
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
-from models.basic_conv_autoencoder import ConvDecoder, ConvEncoder
+from models.drdj_wrapper import DRDJWrapper
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats
-from dataset.datasets import build_tiny_imagenet_dataset
+from dataset.datasets import build_tiny_imagenet_pairs_dataset, build_tiny_imagenet_dataset
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('Convolution Autoencoder training', add_help=False)
+    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=80, type=int)
+
+    # Model parameters
+    parser.add_argument('--r_a', default=1.65, type=float)
+    parser.add_argument('--r_p', default=1.65, type=float)
+    parser.add_argument('--lambda_1', default=1.0, type=float)
+    parser.add_argument('--lambda_2', default=1.0, type=float)
+    parser.add_argument('--lambda_3', default=1.0, type=float)
+    parser.add_argument('--kappa_a', default=5, type=float)
+    parser.add_argument('--kappa_p', default=5, type=float)
+    parser.add_argument('--model', default='ResNet50', type=str)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
+    parser.add_argument('--alpha_lr', type=float, default=None)
     # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
     #                     help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
     # parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
@@ -49,13 +60,15 @@ def get_args_parser():
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
     parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
-    parser.add_argument('--data_group', default=1, type=int, help='which data group')
+    parser.add_argument('--num_classes', default=200, type=int)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_subset', default=1.0, type=float,
                         help='subset of data to use')
+    parser.add_argument('--data_group', default=1, type=int)
+
     # misc
     parser.add_argument('--use_wandb', action='store_true', default=False)
     parser.add_argument('--project_name', default='', type=str,
@@ -84,8 +97,10 @@ def main(args):
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
-    dataset_train = build_tiny_imagenet_dataset(split="train", args=args, include_origin=True)
-    dataset_val = build_tiny_imagenet_dataset(split="val", args=args, include_origin=True)
+    dataset_train = build_tiny_imagenet_pairs_dataset(args=args)
+    dataset_val = build_tiny_imagenet_dataset(split="val", args=args)
+    print(dataset_train)
+    print(dataset_val)
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     data_loader_train = DataLoader(dataset_train, sampler=sampler_train,
                                    batch_size=args.batch_size,
@@ -100,34 +115,43 @@ def main(args):
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
     # initialize model
-    print("Load model")
-    encoder = ConvEncoder().to(device)
-    decoder = ConvDecoder().to(device)
-    criterion = torch.nn.MSELoss()
-    params = list(encoder.parameters()) + list(decoder.parameters())
-    optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay)
+    print(f"Load model: {args.model}")
+    n_a, n_p = dataset_train.get_len_per_group()
+    model = DRDJWrapper(r_a=args.r_a, r_p=args.r_p,
+                        kappa_a=args.kappa_a, kappa_p=args.kappa_p,
+                        n_a=n_a, n_p=n_p,
+                        lambda_1=args.lambda_1,
+                        lambda_2=args.lambda_2,
+                        lambda_3=args.lambda_3,
+                        backbone=args.model,
+                        num_classes=args.num_classes)
+    model.to(device)
+    optimizer = torch.optim.SGD(model.model.parameters(), lr=args.lr, momentum=0.9)
+    optimizer.add_param_group({
+        'params': model.alpha_a,
+        'lr': args.alpha_lr
+    })
+    optimizer.add_param_group({
+        'params': model.alpha_p,
+        'lr': args.alpha_lr
+    })
+    lr_scheduler = ExponentialLR(optimizer, gamma=0.97)
     # train loop
     print(f"Start training for {args.epochs} epochs")
-    for epoch in tqdm(range(args.epochs)):
-        visualize = epoch % 20 == 0 or epoch == args.epochs - 1
-        train_loss = train_one_epoch(encoder=encoder, decoder=decoder,
-                                     data_loader=data_loader_train,
-                                     optimizer=optimizer,
-                                     criterion=criterion,
-                                     device=device,
-                                     visualize=visualize,
-                                     args=args)
-        val_loss = evaluate(encoder=encoder, decoder=decoder,
-                            data_loader=data_loader_val,
-                            criterion=criterion,
+    for epoch in range(args.epochs):
+        print(f"Epoch {epoch+1}")
+        train_loss, train_acc = train_one_epoch(model=model, data_loader=data_loader_train,
+                                                optimizer=optimizer,
+                                                device=device,
+                                                args=args)
+        val_loss, val_acc = evaluate(model=model, data_loader=data_loader_val,
+                            criterion=torch.nn.CrossEntropyLoss(),
                             device=device,
-                            visualize=visualize,
                             args=args)
         # save model
         if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
             to_save = {
-                'encoder': encoder.state_dict(),
-                'decoder': decoder.state_dict(),
+                'model': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'epoch': epoch,
                 'args': args
@@ -135,13 +159,19 @@ def main(args):
             path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
             torch.save(to_save, path)
         # log stats
-        log_stats(stats={"train_loss": train_loss, 
-                         "val_loss": val_loss, 
-                         "lr": args.lr, 
+        log_stats(stats={"train_loss": train_loss,
+                         "train_acc": train_acc,
+                         "val_loss": val_loss,
+                         "val_acc": val_acc,
+                         "alpha_a": model.alpha_a.item(),
+                         "alpha_p": model.alpha_p.item(),
+                         "lr": lr_scheduler.get_last_lr()[0],
+                         "alpha_lr": lr_scheduler.get_last_lr()[1],
                          "epoch": epoch},
                   log_writer=log_writer,
                   epoch=epoch,
                   args=args)
+        lr_scheduler.step()
 
 if __name__ == "__main__":
     args = get_args_parser()

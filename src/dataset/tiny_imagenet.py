@@ -7,35 +7,13 @@ from torchvision import transforms
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
-def simple_transform(args):
-    # simple augmentation
-    transform_train = transforms.Compose([
-        transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    return transform_train
-
-def minimum_transform():
-    transform_train = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
-    return transform_train
-
-def build_dataset(split, args, include_path=False, include_origin=False):
-    return TinyImagenet(transform=simple_transform(args),
-                        split=split,
-                        subset=args.data_subset,
-                        group=args.data_group,
-                        include_path=include_path,
-                        include_origin=include_origin)
-
 class TinyImagenet(Dataset):
-    def __init__(self, transform=None, split='train', subset=1.0, group=1,
+    def __init__(self, train_transform=None, val_transform=None, split='train', subset=1.0, group=1,
                 include_path=False, include_origin=False) -> None:
         super().__init__()
         self.split = split
-        self.transform = transform
+        self.train_transform = train_transform
+        self.val_transform = val_transform
         self.group = group
         self.path = self._get_path()
         self.md = self._get_md()
@@ -56,12 +34,22 @@ class TinyImagenet(Dataset):
             img_path = os.path.join(self.path, row["id"])
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
-        return self._get_custom_item(image, label, img_path)
+        if self.split == 'train':
+            return self._get_custom_item(self.train_transform, image, label, img_path)
+        else:
+            return self._get_custom_item(self.val_transform, image, label, img_path)
+
     
-    def _get_custom_item(self, image, label, img_path):
-        basic_transform = minimum_transform()
-        if self.transform:
-            transformed_image = self.transform(image)
+    def minimum_transform(self):
+        transform_train = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        return transform_train
+    
+    def _get_custom_item(self, transform, image, label, img_path):
+        basic_transform = self.minimum_transform()
+        if transform:
+            transformed_image = transform(image)
         else:
             transformed_image = basic_transform(image)
         # basic processing for original image
@@ -74,7 +62,6 @@ class TinyImagenet(Dataset):
             return transformed_image, label, img_path
         else:
             return transformed_image, label
-
     
     def _get_path(self):
         if self.split == 'train':

@@ -66,7 +66,7 @@ class ConvEncoder(nn.Module):
     
     def _initialize_weights(self):
         for param in self.parameters():
-            torch.nn.init.normal_(param)
+            torch.nn.init.kaiming_normal_(param)
 
 
 class ConvDecoder(nn.Module):
@@ -81,19 +81,19 @@ class ConvDecoder(nn.Module):
         # self.relu1 = nn.ReLU(inplace=True)
 
         self.deconv2 = nn.ConvTranspose2d(128, 64, (2, 2), stride=(2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
+        self.upsamp1 = nn.UpsamplingBilinear2d(2)
         self.relu2 = nn.ReLU(inplace=True)
 
         self.deconv3 = nn.ConvTranspose2d(64, 32, (2, 2), stride=(2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
+        self.upsamp1 = nn.UpsamplingBilinear2d(2)
         self.relu3 = nn.ReLU(inplace=True)
 
         self.deconv4 = nn.ConvTranspose2d(32, 16, (2, 2), stride=(2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
+        self.upsamp1 = nn.UpsamplingBilinear2d(2)
         self.relu4 = nn.ReLU(inplace=True)
 
         self.deconv5 = nn.ConvTranspose2d(16, 3, (2, 2), stride=(2, 2))
-        # self.upsamp1 = nn.UpsamplingBilinear2d(2)
+        self.upsamp1 = nn.UpsamplingBilinear2d(2)
         self.relu5 = nn.ReLU(inplace=True)
 
         self._initialize_weights()
@@ -123,4 +123,4 @@ class ConvDecoder(nn.Module):
     
     def _initialize_weights(self):
         for param in self.parameters():
-            torch.nn.init.normal_(param)
+            torch.nn.init.kaiming_normal_(param)

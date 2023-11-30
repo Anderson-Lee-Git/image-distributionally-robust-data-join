@@ -16,27 +16,31 @@ config = Config(RepositoryEnv(".env"))
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"conv_autoencoder_simple_train_data_group_1"
+name = f"resnet_50_baseline"
 cores_per_job = 5
 mem = 64
-time_hours = 8
+time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
+account = "jamiemmt"
+partition = "gpu-a100"
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
-scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name)
+scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, account=account, partition=partition)
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 10
+num_runs = 5
+
+model = "ResNet50"
 
 # default commands and args
 base_flags = [
     "${env}",
     "python",
-    "autoencoder/train.py",
+    "baseline/train.py",
     "--use_wandb",
     f"--project_name={name}",
     f"--output_dir={logfolder}",
@@ -46,16 +50,18 @@ base_flags = [
 
 sweep_configuration = {
     "method": "random",
-    "metric": {"goal": "minimize", "name": "train_loss"},
+    "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
         "batch_size": {"values": [512]},
-        "epochs": {"values": [400]},
+        "epochs": {"values": [320]},
         "input_size": {"values": [64]},
-        "lr": {"max": 5e-3, "min": 5e-5},
-        "data_group": {"values": [1]},
+        "lr": {"max": 2e-2, "min": 2e-4},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
+        "data_group": {"values": [1]},
+        "weight_decay": {"values": [0.0]},
+        "exp_lr_gamma": {"values": [0.999, 0.99, 0.98]}
     },
     "command": base_flags
 }

@@ -16,7 +16,7 @@ config = Config(RepositoryEnv(".env"))
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"conv_autoencoder_simple_train_data_group_1"
+name = f"drdj_simple_train"
 cores_per_job = 5
 mem = 64
 time_hours = 8
@@ -32,30 +32,42 @@ logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
 num_runs = 10
 
+model = "ResNet50"
+
 # default commands and args
 base_flags = [
     "${env}",
     "python",
-    "autoencoder/train.py",
+    "drdj/train.py",
     "--use_wandb",
     f"--project_name={name}",
     f"--output_dir={logfolder}",
     f"--log_dir={logfolder}",
+    f"--model={model}",
     "${args}"  # use args from configuration as command arguments
 ]
 
 sweep_configuration = {
     "method": "random",
-    "metric": {"goal": "minimize", "name": "train_loss"},
+    "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
         "batch_size": {"values": [512]},
-        "epochs": {"values": [400]},
+        "epochs": {"values": [80]},
         "input_size": {"values": [64]},
-        "lr": {"max": 5e-3, "min": 5e-5},
-        "data_group": {"values": [1]},
+        "lr": {"max": 5e-2, "min": 1e-4},
+        "alpha_lr": {"values": [1e-8]},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
+        "data_group": {"values": [1]},
+        "r_a": {"values": [1.65]},
+        "r_p": {"values": [1.65]},
+        "lambda_1": {"values": [0.1]},
+        "lambda_2": {"values": [0.0]},
+        "lambda_3": {"values": [0.1]},
+        "kappa_a": {"values": [5]},
+        "kappa_p": {"values": [5]},
+        "weight_decay": {"values": [0.01]}
     },
     "command": base_flags
 }
