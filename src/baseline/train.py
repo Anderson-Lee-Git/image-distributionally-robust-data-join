@@ -17,7 +17,7 @@ sys.path.insert(0, config("REPO_ROOT"))
 from models.resnet import build_resnet
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats
-from dataset.datasets import build_tiny_imagenet_pairs_dataset, build_tiny_imagenet_dataset
+from dataset.datasets import build_dataset
 
 def get_args_parser():
     parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
@@ -98,8 +98,8 @@ def main(args):
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
-    dataset_train = build_tiny_imagenet_dataset(split='train', args=args)
-    dataset_val = build_tiny_imagenet_dataset(split="val", args=args)
+    dataset_train = build_dataset(split='train', args=args)
+    dataset_val = build_dataset(split="val", args=args)
     print(dataset_train)
     print(dataset_val)
     # sampler_train = torch.utils.data.RandomSampler(dataset_train)

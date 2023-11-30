@@ -16,7 +16,7 @@ config = Config(RepositoryEnv(".env"))
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"resnet_50_baseline"
+name = f"resnet_50_baseline_cifar_100"
 cores_per_job = 5
 mem = 64
 time_hours = 24
@@ -32,7 +32,7 @@ scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, a
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 5
+num_runs = 10
 
 model = "ResNet50"
 
@@ -54,9 +54,11 @@ sweep_configuration = {
     "parameters":
     {
         "batch_size": {"values": [512]},
-        "epochs": {"values": [320]},
-        "input_size": {"values": [64]},
-        "lr": {"max": 2e-2, "min": 2e-4},
+        "epochs": {"values": [80]},
+        "input_size": {"values": [32]},
+        "num_classes": {"values": [100]},
+        "dataset": {"values": ["cifar100"]},
+        "lr": {"max": 1e-2, "min": 5e-4},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
         "data_group": {"values": [1]},

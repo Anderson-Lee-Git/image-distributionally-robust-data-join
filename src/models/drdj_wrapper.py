@@ -38,15 +38,22 @@ class DRDJWrapper(nn.Module):
         # initialize weights
         self._initialize_weight()
     
-    def forward_loss(self, output, labels):
+    def forward_loss(self, output, labels, include_max_term=False, include_norm=False):
         """
         Must be called after forward to update self.x and self.x_other
         """
         B, L = output.shape
         cross_entropy_term = self.loss_fn(output, labels)
-        max_term = torch.maximum(output[torch.arange(len(labels)).cuda(), labels] - self.alpha_p * self.kappa_p,
-                                 torch.zeros(B).cuda())
-        norm_term = 0.2 * torch.sigmoid(self.alpha_a * torch.linalg.vector_norm(self.output - self.output_other, dim=1))
+        # sum of misclassified logits
+        if include_max_term:
+            max_term = torch.maximum(torch.sum(output, dim=1) - output[torch.arange(len(labels)).cuda(), labels] - self.alpha_p * self.kappa_p,
+                                    torch.zeros(B).cuda())
+        else:
+            max_term = 0
+        if include_norm:
+            norm_term = 0.2 * torch.sigmoid(self.alpha_a * torch.linalg.vector_norm(self.output - self.output_other, dim=1))
+        else:
+            norm_term = 0
         print(f"crossentropy term: {torch.mean(cross_entropy_term)}")
         print(f"max term: {torch.mean(max_term)}")
         print(f"norm term: {torch.mean(norm_term)}")
