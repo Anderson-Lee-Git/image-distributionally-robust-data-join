@@ -16,21 +16,23 @@ config = Config(RepositoryEnv(".env"))
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"drdj_simple_train"
+name = f"drdj_ResNet50_cifar_100_pretrained_backbone"
 cores_per_job = 5
 mem = 64
-time_hours = 8
+time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
+account = "jamiemmt"
+partition = "gpu-a100"
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
-scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name)
+scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, account=account, partition=partition)
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 10
+num_runs = 1
 
 model = "ResNet50"
 
@@ -38,7 +40,7 @@ model = "ResNet50"
 base_flags = [
     "${env}",
     "python",
-    "drdj/train.py",
+    "drdj_vanilla/train.py",
     "--use_wandb",
     f"--project_name={name}",
     f"--output_dir={logfolder}",
@@ -53,21 +55,25 @@ sweep_configuration = {
     "parameters":
     {
         "batch_size": {"values": [512]},
-        "epochs": {"values": [80]},
-        "input_size": {"values": [64]},
-        "lr": {"max": 5e-2, "min": 1e-4},
-        "alpha_lr": {"values": [1e-8]},
+        "epochs": {"values": [100]},
+        "input_size": {"values": [32]},
+        "lr": {"values": [3e-2, 1e-2, 1e-3]},
+        "alpha_lr": {"values": [1e-4, 1e-5, 1e-6]},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
+        "dataset": {"values": ["cifar100_pairs"]},
         "data_group": {"values": [1]},
-        "r_a": {"values": [1.65]},
-        "r_p": {"values": [1.65]},
-        "lambda_1": {"values": [0.1]},
+        "num_classes": {"values": [100]},
+        "r_a": {"values": [1.0]},
+        "r_p": {"values": [1.0]},
+        "lambda_1": {"max": 10.0, "min": 1.0},
         "lambda_2": {"values": [0.0]},
-        "lambda_3": {"values": [0.1]},
-        "kappa_a": {"values": [5]},
-        "kappa_p": {"values": [5]},
-        "weight_decay": {"values": [0.01]}
+        "lambda_3": {"max": 10.0, "min": 1.0},
+        "kappa_a": {"values": [5, 3]},
+        "kappa_p": {"values": [5, 3]},
+        "weight_decay": {"values": [0.0001]},
+        "exp_lr_gamma": {"values": [0.999]},
+        "pretrained_path": {"values": ["/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/resnet_50_baseline_cifar_100/sandy-sweep-3/checkpoint-299.pth"]}
     },
     "command": base_flags
 }

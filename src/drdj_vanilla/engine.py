@@ -1,35 +1,44 @@
 import torch
-from models.resnet import ResNet
+from models import DRDJVanilla
 from tqdm import tqdm
 
-def train_one_epoch(model: ResNet, data_loader: torch.utils.data.DataLoader,
-                    criterion,
+def train_one_epoch(model: DRDJVanilla,
+                    data_loader: torch.utils.data.DataLoader,
                     optimizer: torch.optim.Optimizer,
                     device: torch.device,
+                    include_max_term=True,
+                    include_norm=True,
                     args=None):
     model.train()
     loss = 0
     batch_cnt = 0
     acc = 0
-    for step, (x, labels) in enumerate(tqdm(data_loader)):
+    for step, (x1, x2, labels) in enumerate(tqdm(data_loader)):
         optimizer.zero_grad()
-        x = x.to(device, non_blocking=True)
+        x1 = x1.to(device, non_blocking=True)
+        x2 = x2.to(device, non_blocking=True)
         labels = labels.to(device, non_blocking=True)
-        output = model(x)
-        batch_loss = criterion(output, labels)
+        output, batch_loss = model.forward_loss(x=x1,
+                                                x_other=x2,
+                                                labels=labels,
+                                                include_max_term=include_max_term,
+                                                include_norm=include_norm)
         batch_loss.backward()
         optimizer.step()
+        # enforce alpha_a and alpha_p >= 0
+        # model.alpha_a.clamp_min(min=0.0)
+        # model.alpha_p.clamp_min(min=0.0)
         loss += batch_loss.item()
         # calculate acc
         pred = torch.argmax(output, dim=1)
-        # print(f"pred = {pred}")
-        # print(f"labels = {labels}")
         batch_acc = torch.sum(pred == labels) / len(labels)
         acc += batch_acc.item()
         batch_cnt += 1
+    # print(f"pred = {pred}")
+    # print(f"labels = {labels}")
     return loss / batch_cnt, acc / batch_cnt
 
-def evaluate(model: ResNet, data_loader: torch.utils.data.DataLoader,
+def evaluate(model: DRDJVanilla, data_loader: torch.utils.data.DataLoader,
              criterion: torch.nn.CrossEntropyLoss, device: torch.device,
              args=None):
     model.eval()
@@ -40,7 +49,7 @@ def evaluate(model: ResNet, data_loader: torch.utils.data.DataLoader,
         for step, (images, labels) in enumerate(tqdm(data_loader)):
             images = images.to(device, non_blocking=True)
             labels = labels.to(device, non_blocking=True)
-            output = model(images)
+            output = model.forward_eval(images)
             batch_loss = criterion(output, labels)
             loss += batch_loss.item()
             # calculate acc

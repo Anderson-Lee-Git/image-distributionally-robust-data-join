@@ -3,6 +3,7 @@ from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
 from .cifar_100 import CIFAR100
 from .cifar_100_pairs import CIFAR100Pairs
+from .cifar_100_c import CIFAR100_C
 
 def get_mean_std(args):
     if "cifar100" in args.dataset:
@@ -33,7 +34,8 @@ def simple_transform(args):
         transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
         transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
-        transforms.Normalize(mean=mean, std=std)])
+        transforms.Normalize(mean=mean, std=std)
+    ])
     return transform
 
 def minimum_transform(args):
@@ -44,7 +46,7 @@ def minimum_transform(args):
     return transform_train
 
 def build_dataset(args, split="train", include_path=False, include_origin=False):
-    if "pairs" in args.dataset:
+    if split == "train" and "pairs" in args.dataset:
         if args.dataset == "tiny_imagenet_pairs":
             return TinyImagenetPairs(transform=simple_transform(args),
                                     subset=args.data_subset)
@@ -52,7 +54,8 @@ def build_dataset(args, split="train", include_path=False, include_origin=False)
             return CIFAR100Pairs(transform=simple_transform(args),
                                 subset=args.data_subset)
     else:
-        if args.dataset == "tiny_imagenet":
+        if args.dataset == "tiny_imagenet" or \
+            args.dataset == "tiny_imagenet_pairs":
             return TinyImagenet(train_transform=hard_transform(args),
                                 val_transform=minimum_transform(args),
                                 split=split,
@@ -60,12 +63,17 @@ def build_dataset(args, split="train", include_path=False, include_origin=False)
                                 group=args.data_group,
                                 include_path=include_path,
                                 include_origin=include_origin)
-        elif args.dataset == "cifar100":
-            return CIFAR100(train_transform=hard_transform(args),
+        elif args.dataset == "cifar100" or \
+            args.dataset == "cifar100_pairs":
+            return CIFAR100(train_transform=simple_transform(args),
                             val_transform=minimum_transform(args),
                             split=split,
                             subset=args.data_subset if split == 'train' else 1.0,
                             group=args.data_group,
                             include_path=include_path,
                             include_origin=include_origin)
+        elif args.dataset == "cifar100_c":
+            return CIFAR100_C(corruption=args.corruption,
+                              severity=args.severity)
+    
     raise NotImplementedError(f"{args.dataset} not supported")

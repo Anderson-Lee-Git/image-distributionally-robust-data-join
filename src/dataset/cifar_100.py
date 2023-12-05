@@ -27,11 +27,8 @@ class CIFAR100(Dataset):
     def __getitem__(self, index):
         row = self.md.iloc[index]
         label = None
-        if self.split == 'train' or self.split == 'val':
-            img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
-            label = row["label"]
-        else:
-            img_path = os.path.join(self.path, row["id"])
+        img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
+        label = row["label"]
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
         if self.split == 'train':

@@ -14,25 +14,34 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
-from models.resnet import build_resnet
+from models import DRDJVanilla
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats
 from dataset.datasets import build_dataset
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
+    parser = argparse.ArgumentParser('DRDJ vanilla optimization', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=80, type=int)
 
     # Model parameters
+    parser.add_argument('--r_a', default=1.65, type=float)
+    parser.add_argument('--r_p', default=1.65, type=float)
+    parser.add_argument('--lambda_1', default=0.0, type=float)
+    parser.add_argument('--lambda_2', default=0.0, type=float)
+    parser.add_argument('--lambda_3', default=0.0, type=float)
+    parser.add_argument('--kappa_a', default=5, type=float)
+    parser.add_argument('--kappa_p', default=5, type=float)
     parser.add_argument('--model', default='ResNet50', type=str)
+    parser.add_argument('--pretrained_path', default=None, type=str)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
                         help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
+    parser.add_argument('--alpha_lr', type=float, default=None)
     parser.add_argument('--exp_lr_gamma', type=float, default=1.0,
                         help='gamma of exponential lr scheduler')
     # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
@@ -82,6 +91,10 @@ def main(args):
         wandb.init(project=args.project_name)
         args.output_dir = os.path.join(args.output_dir, wandb.run.name)
         args.log_dir = os.path.join(args.log_dir, wandb.run.name)
+        if not os.path.exists(os.path.join(args.output_dir, "examples")):
+            os.makedirs(os.path.join(args.output_dir, "examples"), exist_ok=True)
+        print(f"wandb run name: {wandb.run.name}")
+    
     device = torch.device(args.device)
 
     # fix seed for reproducibility
@@ -91,8 +104,8 @@ def main(args):
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
-    dataset_train = build_dataset(split='train', args=args)
-    dataset_val = build_dataset(split="val", args=args)
+    dataset_train = build_dataset(args=args, split="train")
+    dataset_val = build_dataset(args=args, split="val")
     print(dataset_train)
     print(dataset_val)
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
@@ -110,24 +123,50 @@ def main(args):
         log_writer = SummaryWriter(log_dir=args.log_dir)
     # initialize model
     print(f"Load model: {args.model}")
-    model = build_resnet(num_classes=args.num_classes, channels=3, args=args)
+    n_a, n_p = dataset_train.get_len_per_group()
+    model = DRDJVanilla(r_a=args.r_a, r_p=args.r_p,
+                        kappa_a=args.kappa_a, kappa_p=args.kappa_p,
+                        n_a=n_a, n_p=n_p,
+                        lambda_1=args.lambda_1,
+                        lambda_2=args.lambda_2,
+                        lambda_3=args.lambda_3,
+                        backbone=args.model,
+                        num_classes=args.num_classes,
+                        args=args)
     model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    print(f"Total trainable parameters: {total_params}")
+    optimizer = torch.optim.SGD(model.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer.add_param_group({
+        'params': model.fc.parameters(),
+        'lr': args.lr,
+        "weight_decay": args.weight_decay
+    })
+    optimizer.add_param_group({
+        'params': model.alpha_a,
+        'lr': args.alpha_lr
+    })
+    optimizer.add_param_group({
+        'params': model.alpha_p,
+        'lr': args.alpha_lr
+    })
     lr_scheduler = ExponentialLR(optimizer, gamma=args.exp_lr_gamma)
-    criterion = torch.nn.CrossEntropyLoss()
     # train loop
     print(f"Start training for {args.epochs} epochs")
+    # torch.autograd.detect_anomaly(True)
     for epoch in range(args.epochs):
         print(f"Epoch {epoch+1}")
         train_loss, train_acc = train_one_epoch(model=model, data_loader=data_loader_train,
-                                                criterion=criterion,
                                                 optimizer=optimizer,
                                                 device=device,
+                                                include_max_term=True,
+                                                include_norm=True,
                                                 args=args)
         val_loss, val_acc = evaluate(model=model, data_loader=data_loader_val,
-                            criterion=criterion,
+                            criterion=torch.nn.CrossEntropyLoss(),
                             device=device,
                             args=args)
+
         # save model
         if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
             to_save = {
@@ -143,7 +182,10 @@ def main(args):
                          "train_acc": train_acc,
                          "val_loss": val_loss,
                          "val_acc": val_acc,
+                         "alpha_a": model.alpha_a.item(),
+                         "alpha_p": model.alpha_p.item(),
                          "lr": lr_scheduler.get_last_lr()[0],
+                         "alpha_lr": lr_scheduler.get_last_lr()[2],
                          "epoch": epoch},
                   log_writer=log_writer,
                   epoch=epoch,

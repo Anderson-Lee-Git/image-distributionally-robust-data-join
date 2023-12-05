@@ -38,5 +38,5 @@ class CIFAR100Pairs(Dataset):
         return pd.read_csv(config("CIFAR100_PAIRS_META_PATH"))
 
     def _get_path(self):
-        return config("CIFAR100_PAIRS_META_PATH")
+        return config("CIFAR100_TRAIN_PATH")
     

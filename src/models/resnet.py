@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class Bottleneck(nn.Module):
-    expansion = 4
+    expansion = 2
     def __init__(self, in_channels, out_channels, i_downsample=None, stride=1):
         super(Bottleneck, self).__init__()
         
@@ -19,7 +19,7 @@ class Bottleneck(nn.Module):
         
         self.i_downsample = i_downsample
         self.stride = stride
-        self.relu = nn.ReLU()
+        self.relu = nn.LeakyReLU(inplace=True)
         
     def forward(self, x):
         identity = x.clone()
@@ -56,7 +56,6 @@ class Block(nn.Module):
 
     def forward(self, x):
       identity = x.clone()
-
       x = self.relu(self.batch_norm2(self.conv1(x)))
       x = self.batch_norm2(self.conv2(x))
 
@@ -74,10 +73,10 @@ class ResNet(nn.Module):
         super(ResNet, self).__init__()
         self.in_channels = 64
         
-        self.conv1 = nn.Conv2d(num_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        self.conv1 = nn.Conv2d(num_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.batch_norm1 = nn.BatchNorm2d(64)
-        self.relu = nn.ReLU()
-        self.max_pool = nn.MaxPool2d(kernel_size = 3, stride=2, padding=1)
+        self.relu = nn.LeakyReLU()
+        # self.max_pool = nn.MaxPool2d(kernel_size = 3, stride=2, padding=1)
         
         self.layer1 = self._make_layer(ResBlock, layer_list[0], planes=64)
         self.layer2 = self._make_layer(ResBlock, layer_list[1], planes=128, stride=2)
@@ -88,9 +87,8 @@ class ResNet(nn.Module):
         self.fc = nn.Linear(512*ResBlock.expansion, num_classes)
         
     def forward(self, x):
-        x = self.relu(self.batch_norm1(self.conv1(x)))
-        x = self.max_pool(x)
-
+        x = self.relu(self.batch_norm1(self.conv1(x))) # 64 x 16 x 16
+        # x = self.max_pool(x) # 64 x 8 x 8
         x = self.layer1(x)
         x = self.layer2(x)
         x = self.layer3(x)
