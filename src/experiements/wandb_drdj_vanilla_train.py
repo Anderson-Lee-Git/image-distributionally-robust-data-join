@@ -23,8 +23,8 @@ time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
-account = "jamiemmt"
-partition = "gpu-a100"
+account = "stf"
+partition = "ckpt"
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
@@ -32,7 +32,7 @@ scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, a
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 1
+num_runs = 10
 
 model = "ResNet50"
 

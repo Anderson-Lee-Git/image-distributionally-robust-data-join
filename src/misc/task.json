@@ -1,0 +1,14 @@
+{
+    "--name": "ResNet50_drdj_vanilla_pretrained_cifar_100_test",
+    "--batch_size": 512,
+    "--model": "ResNet50",
+    "--type": "drdj_adversarial",
+    "--input_size": 32,
+    "--device": "cuda",
+    "--seed": 0,
+    "--num_classes": 100,
+    "--num_workers": 5,
+    "--data_group": 1,
+    "--sweep_dir": "/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/drdj_ResNet50_cifar_100_pretrained_backbone",
+    "--pretrained_path": null
+}

@@ -32,7 +32,7 @@ scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, a
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 1
+num_runs = 8
 
 model = "ResNet50"
 
@@ -65,8 +65,8 @@ sweep_configuration = {
         "dataset": {"values": ["cifar100_pairs"]},
         "data_group": {"values": [1]},
         "num_classes": {"values": [100]},
-        "r_a": {"values": [5.0]},
-        "r_p": {"values": [5.0]},
+        "r_a": {"values": [6.0, 8.0]},
+        "r_p": {"values": [6.0, 8.0]},
         "weight_decay": {"values": [0.0001]},
         "exp_lr_gamma": {"values": [0.999]},
         "pretrained_path": {"values": ["/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/resnet_50_baseline_cifar_100/sandy-sweep-3/checkpoint-299.pth"]}
