@@ -1,0 +1,286 @@
+\documentclass{article}
+
+\usepackage{latexsym}
+\usepackage{bbm}
+\usepackage[small,bf]{caption2}
+\usepackage{graphics}
+\usepackage{epsfig}
+\usepackage{amsmath,amssymb,amsthm,amsfonts}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{enumerate}
+
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+
+\usepackage{xcolor}
+
+% Define a custom environment with blue text color
+\newenvironment{solution}{%
+  \color{blue}%
+}{%
+  \ignorespacesafterend%
+}
+
+%% Page size
+\setlength{\oddsidemargin}{0pt}
+\setlength{\evensidemargin}{0pt}
+\setlength{\textwidth}{6.5in}
+\setlength{\topmargin}{0in}
+\setlength{\textheight}{8.5in}
+
+% Footnote commands.
+\newcommand{\footnotenonumber}[1]{{\def\thempfn{}\footnotetext{#1}}}
+\newcommand{\footnotetight}[1]{\footnote{\renewcommand\baselinestretch{1}\footnotesize #1}}
+
+\newtheorem{propo}{Proposition}[section]
+\newtheorem{lemma}[propo]{Lemma}
+\newtheorem{definition}[propo]{Definition}
+\newtheorem{coro}[propo]{Corollary}
+\newtheorem{thm}[propo]{Theorem}
+\newtheorem{conj}[propo]{Conjecture}
+\newtheorem{fact}[propo]{Fact}
+\newtheorem{remark}[propo]{Remark}
+\newtheorem{claim}[propo]{Claim}
+
+\newcommand{\T}{{\sf T}}
+\newcommand{\Tk}{{\mathbb T_k^{\phi}}}
+\newcommand{\Tl}{{\sf T(\ell)}}
+\newcommand{\uH}{{\underbar{H}}}
+\newcommand{\mulH}{{ \mu^{\ell,H}}}
+\newcommand{\dTl}{{ \partial \T(\ell)}}
+\newcommand{\bE}{\mathbb{E}}
+\newcommand{\prob}{\mathbb{P}}
+\newcommand{\IS}{{\rm IS}}
+\newcommand{\ind}{\mathbb{I}}
+\newcommand{\naturals}{\mathbb{N}}
+\def\vE{\vec{E}}
+\def\reals{\mathbb R}
+\def\tp{\tilde{p}}
+\def\hx{\hat{x}}
+\def\cX{{\cal X}}
+\def\cN{{\cal N}}
+\def\hx{\widehat{x}}
+\def\hs{\widehat{s}}
+\def\hz{\widehat{z}}
+\def\<{\langle}
+\def\>{\rangle}
+\def\cN{{\cal N}}
+\def\Cost{{\cal C}}
+
+\def\meas{{\sf M}}
+\def\vE{{\vec{E}}}
+\def\F{{\sf F}}
+\def\Fv{{\sf F^v}}
+\def\hT{\widehat{T}}
+\def\cE{{\cal E}}
+\def\Tmix{T_{\rm mix}}
+\def\ones{\mathds 1}
+\def\dBall{\partial{\sf B}}
+\def\SAW{\mbox{\tiny SAW}}
+\def\pe{P_{\rm error}}
+\def\tnu{\tilde{\nu}}
+\def\IS{{\rm IS}}
+\def\ind{{\mathbb I}}
+\def\reals{{\mathbb R}}
+\def\naturals{{\mathbb N}}
+\def\root{\o}
+\def\vE{\vec{E}}
+\def\te{\theta_{\rm e}}
+\def\tv{\theta_{\rm v}}
+\def\be{b_{\rm e}}
+\def\bv{b_{\rm v}}
+\def\Bethe{{\mathbb F}}
+\def\E{{\mathbb E}}
+\def\prob{{\mathbb P}}
+\def\hs{{\hat t}}
+\def\htt{{\hat t}}
+\def\hw{{\hat w}}
+\def\E{{\mathbb E}}
+\def\sign{{\rm sign}}
+\def\BP{{\bf P}}
+\def\pvar{{q}}
+\def\pmean{{\alpha}}
+\def\reals{{\mathbb{R}}}
+\def\cX{{\cal X}}
+\def\cY{{\cal Y}}
+\def\cZ{{\cal Z}}
+\def\hx{{\hat x}}
+\def\da{{\partial a}}
+\def\di{{\partial i}}
+\def\ind{{\mathbb I}}
+\def\deg{{\rm deg}}
+\def\tA{{\widetilde A}}
+\def\cI{{\cal I}}
+\def\cC{{\cal C}}
+\def\cC{{\cal C}}
+\def\cG{{\cal G}}
+\def\normeq{{\propto}}
+\def\tol{\leftarrow}
+\def\normal{{\rm N}}
+\def\root{{o}}
+\def\tmu{{\tilde \mu}}
+\def\id{{\mathbb I}}
+\def\cN{{\cal N}}
+\def\hh{\hat{h}}
+\def\hJ{\hat{J}}
+\def\bone{{\bf 1}}
+\def\bx{\overline{x}}
+\def\Lap{{\cal L}}
+\def\BP{{\sc\rm BP}}
+\def\CTree{{\sf CT}_G}
+\def\cL{{\cal L}}
+\def\Gibbs{{\mathbb G}}
+\def\Bethe{{\mathbb F}}
+\def\TRW{{\mathbb F}_{\mbox{\tiny TRW}}}
+\def\MARG{{\rm MARG}}
+\def\cR{{\cal \bf R}}
+\def\cT{{\cal T}}
+\def\LOC{{\rm LOC}}
+\def\Cov{{\rm Cov}}
+\def\Var{{\rm Var}}
+\def\conv{{\rm conv}}
+\def\cR{{\cal \bf R}}
+\def\det{{\rm det}}
+\def\by{\overline{y}}
+
+\def\rank{{\rm rank}}
+\def\<{\langle}
+\def\>{\rangle}
+\def\tX{\widetilde{X}}
+\def\tx{\widetilde{x}}
+\def\hx{\widehat{x}}
+
+\def\de{\text{d}}
+\def\deg{\text{deg}}
+\def\ind{{\mathbb I}}
+\def\ve{\varepsilon}
+\def\eps{\epsilon}
+\def\M{{\sf M}} 
+\def\N{{\sf N}} 
+\def\Z{{\sf Z}} 
+\def\V{{\sf V}} 
+\def\U{{\sf U}} 
+\def\hM{\hat{\sf M}} 
+\def\E{{\mathbb E}}
+\def\te{\tilde{\epsilon}}
+\def\reals{\mathbb{R}}
+
+\def\tM{\widetilde{\sf M}}
+\def\tN{\widetilde{\sf N}}
+\def\de{\text{d}}
+\def\ux{\underline{x}}
+\def\uy{\underline{y}}
+\def\uz{\underline{z}}
+\def\us{\underline{s}}
+\def\ind{{\mathbb I}}
+\def\cX{{\cal X}}
+\def\cY{{\cal Y}}
+\def\me{{\nu}}
+\def\diam{{\rm diam}}
+\def\sTV{\mbox{\tiny TV}}
+\def\ve{\varepsilon}
+\def\di{\partial i}
+\def\T{{\rm T}}
+\def\Ball{{\sf B}}
+\def\M{{\sf M}} 
+\def\normeq{{\cong}}
+\def\atanh{\text{atanh}}
+\def\P{{\sf P}}
+\def\prob{{\mathbb P}}
+\def\F{{\sf F}}
+\def\H{{\mathbb H}}
+\def\uX{\underline{X}}
+\def\cD{{\cal D}}
+\def\f{{\mathfrak f}}
+\def\E{{\mathbb E}}
+\def\me{\nu}
+\def\mh{\widehat{\nu}}
+\def\naturals{{\mathbb N}}
+\def\rationals{{\mathbb Q}}
+\def\da{{\partial a}}
+\def\perr{{\rm P}_{\rm err}}
+\def\Em{{\rm E}_{\rm m}}
+\def\Xh{\widehat{X}}
+\def\eps{\epsilon}
+\def\hm{\hat{m}}
+
+\def\vv{\vec{v}}
+\def\vu{\vec{u}}
+\def\uv{\underline{v}}
+\def\uu{\underline{u}}
+\def\reals{\mathbb{R}}
+\def\RMSE{{\sf RMSE}}
+\def\cF{{\cal F}}
+\def\cP{{\mathcal P}}
+\def\id{{\mathbf 1}}
+%\def\Z{\mathbb{Z}}
+\def\xm{{\bf x}}
+\def\um{{\bf u}}
+
+\def\td{\widetilde{d}}
+\def\tD{\widetilde{D}}
+\def\porth{{\sf P}^{\perp}}
+\def\id{{\bf I}}
+\def\one{{\bf 1}}
+\def\b0{{\bf 0}}
+\def\Rperp{R^{\perp}}
+\def\supp{{\rm supp}}
+\def\Tr{{\rm Tr}}
+\def\cS{{\cal S}}
+\def\cX{{\cal X}}
+\def\cC{{\cal C}}
+\def\Cost{{\cal C}}
+\def\String{{\sf S}}
+\def\Poly{{\rm Poly}}
+
+\def\uS{\underline{S}}
+\def\uc{\underline{c}}
+\def\hZ{\widehat{Z}}
+\def\cut{{\rm cut}}
+\def\tol{\leftarrow}
+\def\normal{{\rm N}}
+\def\root{{o}}
+
+\def\meas{{\sf M}}
+\def\vE{{\vec{E}}}
+\def\F{{\sf F}}
+\def\Fv{{\sf F^v}}
+\def\hT{\widehat{T}}
+\def\cE{{\cal E}}
+\def\Tmix{T_{\rm mix}}
+\def\ones{\mathds 1}
+\def\dBall{\partial{\sf B}}
+\def\SAW{\mbox{\tiny SAW}}
+\def\pe{P_{\rm error}}
+\def\tnu{\tilde{\nu}}
+\def\cind{\perp\!\!\!\perp}
+
+\begin{document}
+  \section*{DRO}
+  \begin{align*}
+    \min_{\theta \in \Theta} \sup_{\mathcal{D} \in \mathcal{P}} \mathbb{E}_{(x, y) \sim D} [\ell(\theta, (x, y))]
+  \end{align*}
+  \section*{Objective}
+  \begin{align*}
+    &\Omega^A(\alpha_A, \alpha_P, \theta) 
+    \\ &= \operatorname*{min}_{\alpha_{A}\alpha_{P}\theta_{1}\theta_{2}}(\alpha_{A}r_{A}+\alpha_{P}r_{P})+\frac{1}{n_{A}n_{P}}\sum_{(i,j) \in M}(f(y_{j}^P\langle \theta , (x_j^P, a_i^A)\rangle)+\mathrm{max}(y_{j}^{P}\langle \theta, (x_j^P,a_{i}^{A}) \rangle -\alpha_{P}\kappa_{P},0)-\alpha_A||x_{i}^{A}-x_{j}^{P}||)
+    \\ &\Omega^P(\alpha_A, \alpha_P, \theta) 
+    \\ &= \operatorname*{min}_{\alpha_{A}\alpha_{P}\theta_{1}\theta_{2}}(\alpha_{A}r_{A}+\alpha_{P}r_{P})+\frac{1}{n_{A}n_{P}}\sum_{(i,j) \in M}(f(y_{j}^P\langle \theta , (x_i^A, a_i^A)\rangle)+\mathrm{max}(y_{j}^{P}\langle \theta, (x_j^P,a_{i}^{A}) \rangle -\alpha_{P}\kappa_{P},0)-\alpha_P||x_{i}^{A}-x_{j}^{P}||)
+  \end{align*}
+  Constrained by
+  \begin{align*}
+    C^A &= \{(\alpha_A, \alpha_P, \theta) : ||\theta_1||_* \le \alpha_A + \alpha_P, ||\theta_2|| \le \kappa_A \alpha_A, \alpha_A < \alpha_P \}
+    \\ C^P &= \{(\alpha_A, \alpha_P, \theta) : ||\theta_1||_* \le \alpha_A + \alpha_P, ||\theta_2|| \le \kappa_A \alpha_A, \alpha_A > \alpha_P \}
+  \end{align*}
+  \section*{Adversarial Loss}
+  \begin{align*}
+    L(x_i^p, x_j^a, \theta) &= w_1 \cdot \ell(\theta, (x_i^p, y_i^p)) + w_2 \cdot \ell(\theta, (\tilde{x}_i^p, y_i^p))
+    + w_3 \cdot \ell(\theta, (x_j^a, y_i^p)) + w_4 \cdot \ell(\theta, (\tilde{x}_j^a, y_i^p))
+  \end{align*}
+  \section*{Perturbed samples}
+  \begin{align*}
+    \tilde{x}_i^p &= \text{arg} \max_{x \in \mathcal{B}(x_i^p)} ||f(\theta, x) - f(\theta, x^a_j)||_2
+    \\ \tilde{x}_j^a &= \text{arg} \max_{x \in \mathcal{B}(x_j^a)} ||f(\theta, x) - f(\theta, x^p_i)||_2
+  \end{align*}
+\end{document}
