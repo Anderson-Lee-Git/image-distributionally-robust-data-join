@@ -4,6 +4,7 @@ from .tiny_imagenet import TinyImagenet
 from .cifar_100 import CIFAR100
 from .cifar_100_pairs import CIFAR100Pairs
 from .cifar_100_c import CIFAR100_C
+from .aux_cifar_100 import AuxCIFAR100
 
 def get_mean_std(args):
     if "cifar100" in args.dataset:
@@ -31,8 +32,6 @@ def simple_transform(args):
     # simple augmentation
     mean, std = get_mean_std(args)
     transform = transforms.Compose([
-        transforms.RandomResizedCrop(args.input_size, scale=(0.2, 1.0), interpolation=3),  # 3 is bicubic
-        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std)
     ])
@@ -75,5 +74,10 @@ def build_dataset(args, split="train", include_path=False, include_origin=False)
         elif args.dataset == "cifar100_c":
             return CIFAR100_C(corruption=args.corruption,
                               severity=args.severity)
+        elif args.dataset == "aux_cifar100":
+            return AuxCIFAR100(train_transform=simple_transform(args),
+                               val_transform=minimum_transform(args),
+                               split=split,
+                               subset=args.data_subset if split == 'train' else 1.0)
     
     raise NotImplementedError(f"{args.dataset} not supported")

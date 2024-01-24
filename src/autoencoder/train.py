@@ -8,16 +8,16 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ExponentialLR
 from tqdm import tqdm
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
-from models.basic_conv_autoencoder import ConvDecoder, ConvEncoder
+from models import build_autoencoder
 from engine import train_one_epoch, evaluate
-from utils.logs import log_stats
-from dataset.datasets import build_tiny_imagenet_dataset
+from utils.logs import log_stats, count_parameters
+from dataset.datasets import build_dataset
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Convolution Autoencoder training', add_help=False)
@@ -30,15 +30,15 @@ def get_args_parser():
                         help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
-    # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
-    #                     help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    # parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
-    #                     help='lower lr bound for cyclic schedulers that hit 0')
-    # parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
-    #                     help='epochs to warmup LR')
+    parser.add_argument('--exp_lr_gamma', type=float, default=1.0,
+                        help='gamma of exponential lr scheduler')
+    
+    # Model parameters
+    parser.add_argument('--model', type=str, default="basic_conv",
+                        help='which model to use')
 
     # Dataset parameters
-    parser.add_argument('--input_size', type=int, default=64)
+    parser.add_argument('--input_size', type=int, default=32)
     parser.add_argument('--output_dir', default='./output_dir',
                         help='path where to save, empty for no saving')
     parser.add_argument('--log_dir', default='./output_dir',
@@ -48,8 +48,7 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-    parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
-    parser.add_argument('--data_group', default=1, type=int, help='which data group')
+    parser.add_argument('--dataset', default=None, type=str, help='dataset option')
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -84,8 +83,8 @@ def main(args):
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
-    dataset_train = build_tiny_imagenet_dataset(split="train", args=args, include_origin=True)
-    dataset_val = build_tiny_imagenet_dataset(split="val", args=args, include_origin=True)
+    dataset_train = build_dataset(args=args, split="train")
+    dataset_val = build_dataset(args=args, split="val")
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
     data_loader_train = DataLoader(dataset_train, sampler=sampler_train,
                                    batch_size=args.batch_size,
@@ -101,23 +100,26 @@ def main(args):
         log_writer = SummaryWriter(log_dir=args.log_dir)
     # initialize model
     print("Load model")
-    encoder = ConvEncoder().to(device)
-    decoder = ConvDecoder().to(device)
+    autoencoder = build_autoencoder(args).to(device)
     criterion = torch.nn.MSELoss()
-    params = list(encoder.parameters()) + list(decoder.parameters())
-    optimizer = torch.optim.AdamW(params, lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(autoencoder.parameters(), lr=args.lr)
+    lr_scheduler = ExponentialLR(optimizer, gamma=args.exp_lr_gamma)
+    # information
+    print(f"Number of parameters: {count_parameters(autoencoder)}")
+    print(f"Number of training images: {len(dataset_train)}")
+    print(f"Number of validation iamges: {len(dataset_val)}")
     # train loop
     print(f"Start training for {args.epochs} epochs")
-    for epoch in tqdm(range(args.epochs)):
-        visualize = epoch % 20 == 0 or epoch == args.epochs - 1
-        train_loss = train_one_epoch(encoder=encoder, decoder=decoder,
+    for epoch in range(args.epochs):
+        visualize = epoch % 20 == 0 or epoch == args.epochs - 1 or True
+        train_loss = train_one_epoch(autoencoder=autoencoder,
                                      data_loader=data_loader_train,
                                      optimizer=optimizer,
                                      criterion=criterion,
                                      device=device,
                                      visualize=visualize,
                                      args=args)
-        val_loss = evaluate(encoder=encoder, decoder=decoder,
+        val_loss = evaluate(autoencoder=autoencoder,
                             data_loader=data_loader_val,
                             criterion=criterion,
                             device=device,
@@ -126,8 +128,7 @@ def main(args):
         # save model
         if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
             to_save = {
-                'encoder': encoder.state_dict(),
-                'decoder': decoder.state_dict(),
+                'autoencoder': autoencoder.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'epoch': epoch,
                 'args': args
@@ -137,11 +138,12 @@ def main(args):
         # log stats
         log_stats(stats={"train_loss": train_loss, 
                          "val_loss": val_loss, 
-                         "lr": args.lr, 
+                         "lr": lr_scheduler.get_last_lr()[0], 
                          "epoch": epoch},
                   log_writer=log_writer,
                   epoch=epoch,
                   args=args)
+        lr_scheduler.step()
 
 if __name__ == "__main__":
     args = get_args_parser()
@@ -151,3 +153,4 @@ if __name__ == "__main__":
     main(args)
     if args.use_wandb:
         wandb.finish()
+        os.system("wandb artifact cache cleanup 5G")

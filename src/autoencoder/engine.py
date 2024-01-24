@@ -4,29 +4,27 @@ import sys
 
 import torch
 import wandb
+from tqdm import tqdm
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
 from utils.visualization import visualize_image
 
-def train_one_epoch(encoder: torch.nn.Module,
-                    decoder: torch.nn.Module,
+def train_one_epoch(autoencoder: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     criterion: torch.nn.MSELoss,
                     device: torch.device,
                     visualize: bool = False,
                     args=None):
-    encoder.train()
-    decoder.train()
-    optimizer.zero_grad()
+    autoencoder.train()
     loss = 0
     batch_cnt = 0
-    for step, (samples, _, original_images) in enumerate(data_loader):
+    for step, (samples, original_images) in enumerate(tqdm(data_loader)):
+        optimizer.zero_grad()
         samples = samples.to(device, non_blocking=True)
         original_images = original_images.to(device, non_blocking=True)
-        latent = encoder(samples)
-        reconstructed_images = decoder(latent)
+        reconstructed_images = autoencoder(samples)
         batch_loss = criterion(reconstructed_images, original_images)
         batch_loss.backward()
         optimizer.step()
@@ -41,23 +39,21 @@ def train_one_epoch(encoder: torch.nn.Module,
         visualize_image(reconstructed_images[0], os.path.join(args.log_dir, "examples/sample_reconstruction.png"))
     return loss / batch_cnt
 
-def evaluate(encoder: torch.nn.Module,
-            decoder: torch.nn.Module,
+def evaluate(autoencoder: torch.nn.Module,
             data_loader: Iterable,
             criterion: torch.nn.MSELoss,
             device: torch.device,
             visualize: bool = False,
             args=None):
-    encoder.eval()
-    decoder.eval()
+    autoencoder.eval()
     loss = 0
     batch_cnt = 0
+    visualized_images = []
     with torch.no_grad():
-        for step, (samples, _, original_images) in enumerate(data_loader):
+        for step, (samples, original_images) in enumerate(tqdm(data_loader)):
             samples = samples.to(device, non_blocking=True)
             original_images = original_images.to(device, non_blocking=True)
-            latent = encoder(samples)
-            reconstructed_images = decoder(latent)
+            reconstructed_images = autoencoder(samples)
             batch_loss = criterion(reconstructed_images, original_images)
             # sample a random image/reconstruction pair in each batch to visualize
             if visualize:
@@ -67,11 +63,15 @@ def evaluate(encoder: torch.nn.Module,
                 visualize_image(samples[idx], os.path.join(args.log_dir, f"examples/sample_image_{step}.png"))
                 visualize_image(reconstructed_images[idx], os.path.join(args.log_dir, f"examples/sample_reconstruction_{step}.png"))
                 if args.use_wandb:
-                    wandb.log({
-                        f"sample_image_{step}": wandb.Image(os.path.join(args.log_dir, f"examples/sample_image_{step}.png")),
-                        f"sample_reconstruction_{step}": wandb.Image(os.path.join(args.log_dir, f"examples/sample_reconstruction_{step}.png"))
-                    })
+                    visualized_images.append(
+                        [wandb.Image(os.path.join(args.log_dir, f"examples/sample_image_{step}.png")), 
+                        wandb.Image(os.path.join(args.log_dir, f"examples/sample_reconstruction_{step}.png"))]
+                    )
         loss += batch_loss.item()
         batch_cnt += 1
+    if args.use_wandb:
+        columns = ["image", "reconstruction"]
+        table = wandb.Table(columns=columns, data=visualized_images)
+        wandb.log({"table_key": table}, commit=False)
     return loss / batch_cnt
 

@@ -7,7 +7,7 @@ IMAGENET_DEFAULT_STD = [0.229, 0.224, 0.225]
 CIFAR100_DEFAULT_MEAN = [0.5071, 0.4867, 0.4408]
 CIFAR100_DEFAULT_STD = [0.2675, 0.2565, 0.2761]
 
-def visualize_image(img: torch.Tensor, path: str, rev_std: bool = True):
+def visualize_image(img: torch.Tensor, path: str):
     if not isinstance(img, torch.Tensor):
         raise NotImplementedError(f"Please pass in tensor objects, dtype ({type(img)}) is not supported")
     # if passed in batched images

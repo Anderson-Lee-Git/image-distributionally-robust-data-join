@@ -19,3 +19,6 @@ def log_stats(stats: dict, log_writer: SummaryWriter, epoch: int, args):
             
     if args.use_wandb:
         wandb.log(stats)
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

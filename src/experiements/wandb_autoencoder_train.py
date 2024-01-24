@@ -9,14 +9,18 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
+parser.add_argument('-A', type=str, default="stf")
+parser.add_argument('-p', type=str, default="ckpt")
 args = parser.parse_args()
 
 config = Config(RepositoryEnv(".env"))
 
 # sbatch details
+account = args.A
+partition = args.p
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"conv_autoencoder_simple_train_data_group_1"
+name = f"resnet_autoencoder_train_aux_cifar_100_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 8
@@ -26,11 +30,11 @@ exclude = ""
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
-scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name)
+scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, account=account, partition=partition)
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 10
+num_runs = 8
 
 # default commands and args
 base_flags = [
@@ -50,12 +54,14 @@ sweep_configuration = {
     "parameters":
     {
         "batch_size": {"values": [512]},
-        "epochs": {"values": [400]},
-        "input_size": {"values": [64]},
-        "lr": {"max": 5e-3, "min": 5e-5},
-        "data_group": {"values": [1]},
+        "epochs": {"values": [30]},
+        "input_size": {"values": [32]},
+        "lr": {"max": 7e-4, "min": 1e-5},
+        "exp_lr_gamma": {"values": [0.99]},
+        "dataset": {"values": ["aux_cifar100"]},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
+        "model": {"values": ["resnet50"]}
     },
     "command": base_flags
 }
@@ -71,7 +77,7 @@ if os.path.exists(sweep_out_file):
     os.remove(sweep_out_file)
 
 # dump sweep config for main to read
-with open(f"{sweep_config_path}/{name}.yaml", "w") as config_file:
+with open(f"{sweep_config_path}/{name}_{partition}.yaml", "w") as config_file:
     yaml.dump(sweep_configuration, config_file)
 
 # add job to scheduler
