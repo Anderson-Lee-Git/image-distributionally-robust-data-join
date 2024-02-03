@@ -1,0 +1,106 @@
+\begin{thebibliography}{14}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Awasthi et~al.(2022)Awasthi, Jung, and
+  Morgenstern]{awasthi2022distributionally}
+Pranjal Awasthi, Christopher Jung, and Jamie Morgenstern.
+\newblock Distributionally robust data join.
+\newblock \emph{arXiv preprint arXiv:2202.05797}, 2022.
+
+\bibitem[Hendrycks and Dietterich(2019)]{hendrycks2019robustness}
+Dan Hendrycks and Thomas Dietterich.
+\newblock Benchmarking neural network robustness to common corruptions and
+  perturbations.
+\newblock \emph{Proceedings of the International Conference on Learning
+  Representations}, 2019.
+
+\bibitem[Yao et~al.(2022)Yao, Choi, Cao, Lee, Koh, and Finn]{yao2022wild}
+Huaxiu Yao, Caroline Choi, Bochuan Cao, Yoonho Lee, Pang Wei~W Koh, and Chelsea
+  Finn.
+\newblock Wild-time: A benchmark of in-the-wild distribution shift over time.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  35:\penalty0 10309--10324, 2022.
+
+\bibitem[Malinin et~al.(2021)Malinin, Band, Chesnokov, Gal, Gales, Noskov,
+  Ploskonosov, Prokhorenkova, Provilkov, Raina, et~al.]{malinin2021shifts}
+Andrey Malinin, Neil Band, German Chesnokov, Yarin Gal, Mark~JF Gales, Alexey
+  Noskov, Andrey Ploskonosov, Liudmila Prokhorenkova, Ivan Provilkov, Vatsal
+  Raina, et~al.
+\newblock Shifts: A dataset of real distributional shift across multiple
+  large-scale tasks.
+\newblock \emph{arXiv preprint arXiv:2107.07455}, 2021.
+
+\bibitem[Rahimian and Mehrotra(2019)]{rahimian2019distributionally}
+Hamed Rahimian and Sanjay Mehrotra.
+\newblock Distributionally robust optimization: A review.
+\newblock \emph{arXiv preprint arXiv:1908.05659}, 2019.
+
+\bibitem[Erdogan and Iyengar(2006)]{Erdogan2006AmbiguousCC}
+Emre Erdogan and Garud Iyengar.
+\newblock Ambiguous chance constrained problems and robust optimization.
+\newblock \emph{Mathematical Programming}, 107:\penalty0 37--61, 2006.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:17811244}.
+
+\bibitem[Esfahani and Kuhn(2015)]{esfahani2015data}
+Peyman~Mohajerin Esfahani and Daniel Kuhn.
+\newblock Data-driven distributionally robust optimization using the
+  wasserstein metric: Performance guarantees and tractable reformulations.
+\newblock \emph{arXiv preprint arXiv:1505.05116}, 2015.
+
+\bibitem[Sagawa et~al.(2019)Sagawa, Koh, Hashimoto, and
+  Liang]{sagawa2019distributionally}
+Shiori Sagawa, Pang~Wei Koh, Tatsunori~B Hashimoto, and Percy Liang.
+\newblock Distributionally robust neural networks for group shifts: On the
+  importance of regularization for worst-case generalization.
+\newblock \emph{arXiv preprint arXiv:1911.08731}, 2019.
+
+\bibitem[Frogner et~al.(2019)Frogner, Claici, Chien, and
+  Solomon]{frogner2019incorporating}
+Charlie Frogner, Sebastian Claici, Edward Chien, and Justin Solomon.
+\newblock Incorporating unlabeled data into distributionally robust learning.
+\newblock \emph{arXiv preprint arXiv:1912.07729}, 2019.
+
+\bibitem[Staib(2017)]{Staib2017DistributionallyRD}
+Matthew Staib.
+\newblock Distributionally robust deep learning as a generalization of
+  adversarial training.
+\newblock 2017.
+\newblock URL \url{https://api.semanticscholar.org/CorpusID:52063282}.
+
+\bibitem[Carmon et~al.(2019)Carmon, Raghunathan, Schmidt, Duchi, and
+  Liang]{carmon2019unlabeled}
+Yair Carmon, Aditi Raghunathan, Ludwig Schmidt, John~C Duchi, and Percy~S
+  Liang.
+\newblock Unlabeled data improves adversarial robustness.
+\newblock \emph{Advances in neural information processing systems}, 32, 2019.
+
+\bibitem[He et~al.(2022)He, Chen, Xie, Li, Doll{\'a}r, and
+  Girshick]{he2022masked}
+Kaiming He, Xinlei Chen, Saining Xie, Yanghao Li, Piotr Doll{\'a}r, and Ross
+  Girshick.
+\newblock Masked autoencoders are scalable vision learners.
+\newblock In \emph{Proceedings of the IEEE/CVF conference on computer vision
+  and pattern recognition}, pages 16000--16009, 2022.
+
+\bibitem[Taori et~al.(2020)Taori, Dave, Shankar, Carlini, Recht, and
+  Schmidt]{taori2020measuring}
+Rohan Taori, Achal Dave, Vaishaal Shankar, Nicholas Carlini, Benjamin Recht,
+  and Ludwig Schmidt.
+\newblock Measuring robustness to natural distribution shifts in image
+  classification.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  33:\penalty0 18583--18599, 2020.
+
+\bibitem[McAuley and Leskovec(2012)]{mcauley2012image}
+Julian McAuley and Jure Leskovec.
+\newblock Image labeling on a network: using social-network metadata for image
+  classification.
+\newblock In \emph{Computer Vision--ECCV 2012: 12th European Conference on
+  Computer Vision, Florence, Italy, October 7-13, 2012, Proceedings, Part IV
+  12}, pages 828--841. Springer, 2012.
+
+\end{thebibliography}
