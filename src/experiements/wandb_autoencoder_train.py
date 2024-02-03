@@ -15,12 +15,15 @@ args = parser.parse_args()
 
 config = Config(RepositoryEnv(".env"))
 
+model = "resnet50"
+dataset = "cifar100"
+
 # sbatch details
 account = args.A
 partition = args.p
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"resnet_autoencoder_train_aux_cifar_100_{partition}"
+name = f"{model}_autoencoder_train_{dataset}_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 8
@@ -50,18 +53,20 @@ base_flags = [
 
 sweep_configuration = {
     "method": "random",
-    "metric": {"goal": "minimize", "name": "train_loss"},
+    "metric": {"goal": "minimize", "name": "val_loss"},
     "parameters":
     {
-        "batch_size": {"values": [512]},
+        "batch_size": {"values": [128]},
         "epochs": {"values": [30]},
-        "input_size": {"values": [32]},
-        "lr": {"max": 7e-4, "min": 1e-5},
-        "exp_lr_gamma": {"values": [0.99]},
-        "dataset": {"values": ["aux_cifar100"]},
+        "input_size": {"values": [224]},
+        "lr": {"max": 1e-4, "min": 1e-6},
+        "exp_lr_gamma": {"values": [0.98]},
+        "dataset": {"values": [dataset]},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
-        "model": {"values": ["resnet50"]}
+        "model": {"values": [model]},
+        "data_group": {"values": [0]},
+        "weight_decay": {"values": [0.0001, 0.0003]}
     },
     "command": base_flags
 }
@@ -77,7 +82,7 @@ if os.path.exists(sweep_out_file):
     os.remove(sweep_out_file)
 
 # dump sweep config for main to read
-with open(f"{sweep_config_path}/{name}_{partition}.yaml", "w") as config_file:
+with open(f"{sweep_config_path}/{name}.yaml", "w") as config_file:
     yaml.dump(sweep_configuration, config_file)
 
 # add job to scheduler

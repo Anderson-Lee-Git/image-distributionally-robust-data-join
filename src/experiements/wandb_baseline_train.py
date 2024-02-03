@@ -9,22 +9,27 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
+parser.add_argument('-A', type=str, default="stf")
+parser.add_argument('-p', type=str, default="ckpt")
 args = parser.parse_args()
 
 config = Config(RepositoryEnv(".env"))
 
+model = "resnet50"
+dataset = "cifar100"
+
 # sbatch details
+account = args.A
+partition = args.p
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"resnet_50_baseline_cifar_100"
+name = f"{model}_baseline_{dataset}_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
-account = "stf"
-partition = "ckpt"
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
@@ -32,9 +37,7 @@ scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, a
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-num_runs = 8
-
-model = "ResNet50"
+num_runs = 10
 
 # default commands and args
 base_flags = [
@@ -53,17 +56,18 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
-        "batch_size": {"values": [512]},
-        "epochs": {"values": [300]},
-        "input_size": {"values": [32]},
+        "batch_size": {"values": [128]},
+        "epochs": {"values": [30]},
+        "input_size": {"values": [224]},
         "num_classes": {"values": [100]},
-        "dataset": {"values": ["cifar100"]},
-        "lr": {"max": 8e-2, "min": 4e-2},
+        "dataset": {"values": [dataset]},
+        "lr": {"max": 3e-4, "min": 1e-5},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
         "data_group": {"values": [1]},
-        "weight_decay": {"values": [0.0003, 0.0001]},
-        "exp_lr_gamma": {"values": [0.999]}
+        "weight_decay": {"values": [0.0004, 0.0003]},
+        "exp_lr_gamma": {"values": [0.999, 0.998, 0.997]},
+        "model": {"values": [model]}
     },
     "command": base_flags
 }

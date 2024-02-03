@@ -20,7 +20,7 @@ def train_one_epoch(autoencoder: torch.nn.Module,
     autoencoder.train()
     loss = 0
     batch_cnt = 0
-    for step, (samples, original_images) in enumerate(tqdm(data_loader)):
+    for step, (samples, original_images, _) in enumerate(tqdm(data_loader)):
         optimizer.zero_grad()
         samples = samples.to(device, non_blocking=True)
         original_images = original_images.to(device, non_blocking=True)
@@ -30,9 +30,9 @@ def train_one_epoch(autoencoder: torch.nn.Module,
         optimizer.step()
         loss += batch_loss.item()
         batch_cnt += 1
-    # visualize the last batch randomly
+    # visualize the last batch
     p = torch.rand(1)
-    if visualize and p < 0.02:
+    if p < 0.25:
         if not os.path.exists(os.path.join(args.log_dir, "examples")):
             os.makedirs(os.path.join(args.log_dir, "examples"))
         visualize_image(samples[0], os.path.join(args.log_dir, "examples/sample_image.png"))
@@ -50,7 +50,7 @@ def evaluate(autoencoder: torch.nn.Module,
     batch_cnt = 0
     visualized_images = []
     with torch.no_grad():
-        for step, (samples, original_images) in enumerate(tqdm(data_loader)):
+        for step, (samples, original_images, _) in enumerate(tqdm(data_loader)):
             samples = samples.to(device, non_blocking=True)
             original_images = original_images.to(device, non_blocking=True)
             reconstructed_images = autoencoder(samples)
@@ -72,6 +72,6 @@ def evaluate(autoencoder: torch.nn.Module,
     if args.use_wandb:
         columns = ["image", "reconstruction"]
         table = wandb.Table(columns=columns, data=visualized_images)
-        wandb.log({"table_key": table}, commit=False)
+        wandb.log({"table_key": table})
     return loss / batch_cnt
 

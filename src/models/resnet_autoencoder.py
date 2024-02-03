@@ -1,5 +1,9 @@
+# https://github.com/Horizon2333/imagenet-autoencoder/blob/main/models/resnet.py
+import math
 import torch
 import torch.nn as nn
+
+from torchvision.models import resnet50, ResNet50_Weights
 
 def get_configs(arch='resnet50'):
     # True or False means wether to use BottleNeck
@@ -8,7 +12,7 @@ def get_configs(arch='resnet50'):
     elif arch == 'resnet34':
         return [3, 4, 6, 3], False
     elif arch == 'resnet50':
-        return [3, 4, 6, 3], False
+        return [3, 4, 6, 3], True
     elif arch == 'resnet101':
         return [3, 4, 23, 3], True
     elif arch == 'resnet152':
@@ -17,18 +21,28 @@ def get_configs(arch='resnet50'):
         raise ValueError("Undefined model")
 
 class ResNetAutoEncoder(nn.Module):
-    def __init__(self, configs, bottleneck):
+    def __init__(self, configs, bottleneck, pretrained=False):
         super(ResNetAutoEncoder, self).__init__()
-        self.encoder = ResNetEncoder(configs=configs,       bottleneck=bottleneck)
+        if pretrained:
+            print("Using pretrained weights")
+            self.encoder = resnet50(weights=ResNet50_Weights.DEFAULT)
+            self.encoder.fc = nn.Identity()
+            self.encoder.avgpool = nn.Identity()
+        else:
+            self.encoder = ResNetEncoder(configs=configs, bottleneck=bottleneck)
         self.decoder = ResNetDecoder(configs=configs[::-1], bottleneck=bottleneck)
     
     def forward(self, x):
         x = self.encoder(x)
+        if len(x.shape) == 2:
+            B, D = x.shape
+            H = W = int(math.sqrt(D / 2048))
+            x = x.view(B, -1, H, W)
         x = self.decoder(x)
         return x
 
 class ResNet(nn.Module):
-    def __init__(self, configs, bottleneck=False, num_classes=1000):
+    def __init__(self, configs, bottleneck=False, num_classes=1000, pretrained=False):
         super(ResNet, self).__init__()
         self.encoder = ResNetEncoder(configs, bottleneck)
         self.avpool = nn.AdaptiveAvgPool2d((1,1))
@@ -36,18 +50,25 @@ class ResNet(nn.Module):
             self.fc = nn.Linear(in_features=2048, out_features=num_classes)
         else:
             self.fc = nn.Linear(in_features=512, out_features=num_classes)
-
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-                if m.bias is not None:
+        
+        if pretrained:
+            print("Using pretrained weights")
+            self.encoder = resnet50(weights=ResNet50_Weights.DEFAULT)
+            self.encoder.fc = self.fc
+            self.avpool = nn.Identity()
+            self.fc = nn.Identity()
+        else:
+            for m in self.modules():
+                if isinstance(m, nn.Conv2d):
+                    nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
+                    if m.bias is not None:
+                        nn.init.constant_(m.bias, 0)
+                elif isinstance(m, nn.BatchNorm2d):
+                    nn.init.constant_(m.weight, 1)
                     nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.BatchNorm2d):
-                nn.init.constant_(m.weight, 1)
-                nn.init.constant_(m.bias, 0)
-            elif isinstance(m, nn.Linear):
-                nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
-                nn.init.constant_(m.bias, 0)
+                elif isinstance(m, nn.Linear):
+                    nn.init.kaiming_normal_(m.weight, mode="fan_in", nonlinearity="relu")
+                    nn.init.constant_(m.bias, 0)
     
     def forward(self, x):
         x = self.encoder(x)
@@ -64,7 +85,7 @@ class ResNetEncoder(nn.Module):
             raise ValueError("Only 4 layers can be configued")
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv2d(in_channels=3, out_channels=64, kernel_size=7, stride=2, padding=3, bias=False),
             nn.BatchNorm2d(num_features=64),
             nn.ReLU(inplace=True),
         )
@@ -110,19 +131,17 @@ class ResNetDecoder(nn.Module):
         self.conv5 = nn.Sequential(
             nn.BatchNorm2d(num_features=64),
             nn.ReLU(inplace=True),
-            nn.ConvTranspose2d(in_channels=64, out_channels=3, kernel_size=3, stride=1, padding=1, output_padding=0, bias=False),
+            nn.ConvTranspose2d(in_channels=64, out_channels=3, kernel_size=7, stride=2, padding=3, output_padding=1, bias=False),
         )
         self.gate = nn.Sigmoid()
 
     def forward(self, x):
-
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         x = self.conv4(x)
         x = self.conv5(x)
         x = self.gate(x)
-
         return x
 
 class EncoderResidualBlock(nn.Module):

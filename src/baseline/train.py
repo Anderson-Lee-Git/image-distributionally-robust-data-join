@@ -14,9 +14,9 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
-from models.resnet import build_resnet
+from models import build_resnet
 from engine import train_one_epoch, evaluate
-from utils.logs import log_stats
+from utils.logs import log_stats, count_parameters
 from dataset.datasets import build_dataset
 
 def get_args_parser():
@@ -35,12 +35,6 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--exp_lr_gamma', type=float, default=1.0,
                         help='gamma of exponential lr scheduler')
-    # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
-    #                     help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    # parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
-    #                     help='lower lr bound for cyclic schedulers that hit 0')
-    # parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
-    #                     help='epochs to warmup LR')
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
@@ -53,8 +47,8 @@ def get_args_parser():
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-    parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
-    parser.add_argument('--num_classes', default=200, type=int)
+    parser.add_argument('--dataset', default='cifar100', type=str, help='dataset option')
+    parser.add_argument('--num_classes', default=100, type=int)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -110,11 +104,12 @@ def main(args):
         log_writer = SummaryWriter(log_dir=args.log_dir)
     # initialize model
     print(f"Load model: {args.model}")
-    model = build_resnet(num_classes=args.num_classes, channels=3, args=args)
+    model = build_resnet(num_classes=args.num_classes, pretrained=True, args=args)
     model.to(device)
-    optimizer = torch.optim.SGD(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     lr_scheduler = ExponentialLR(optimizer, gamma=args.exp_lr_gamma)
     criterion = torch.nn.CrossEntropyLoss()
+    print(f"Number of params: {count_parameters(model)}")
     # train loop
     print(f"Start training for {args.epochs} epochs")
     for epoch in range(args.epochs):

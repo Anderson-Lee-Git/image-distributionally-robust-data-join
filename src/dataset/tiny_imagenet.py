@@ -9,7 +9,7 @@ config = Config(RepositoryEnv(".env"))
 
 class TinyImagenet(Dataset):
     def __init__(self, train_transform=None, val_transform=None, split='train', subset=1.0, group=1,
-                include_path=False, include_origin=False) -> None:
+                include_path=False) -> None:
         super().__init__()
         self.split = split
         self.train_transform = train_transform
@@ -19,7 +19,6 @@ class TinyImagenet(Dataset):
         self.md = self._get_md()
         self.subset = subset
         self.include_path = include_path
-        self.include_origin = include_origin
     
     def __len__(self):
         return int(len(self.md) * self.subset)
@@ -54,14 +53,14 @@ class TinyImagenet(Dataset):
             transformed_image = basic_transform(image)
         # basic processing for original image
         image = basic_transform(image)
-        if self.include_origin and self.include_path:
-            return transformed_image, label, image, img_path
-        elif self.include_origin:
-            return transformed_image, label, image
-        elif self.include_path:
-            return transformed_image, label, img_path
-        else:
-            return transformed_image, label
+        # if self.include_origin and self.include_path:
+        #     return transformed_image, label, image, img_path
+        # elif self.include_origin:
+        #     return transformed_image, label, image
+        # elif self.include_path:
+        #     return transformed_image, label, img_path
+        # else:
+        #     return transformed_image, label
     
     def _get_path(self):
         if self.split == 'train':

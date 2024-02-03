@@ -166,7 +166,7 @@ class HyakScheduler(object):
                             bare_lines.append('echo SLURM_PROCID=$SLURM_PROCID')
                             bare_lines.append(f'if [[ $SLURM_PROCID -eq {0} ]] && [ ! -f "{log_path}/sweepid.txt" ]')
                             bare_lines.append('then')
-                            bare_lines.append(f'\t wandb sweep --project {self.exp_name} {self.config("SWEEP_CONFIG_BASE_PATH")}/{self.exp_name}_{self.partition}.yaml 2>&1 | tee "{log_path}/sweepid.txt"')
+                            bare_lines.append(f'\t wandb sweep --project {self.exp_name} {self.config("SWEEP_CONFIG_BASE_PATH")}/{self.exp_name}.yaml 2>&1 | tee "{log_path}/sweepid.txt"')
                             bare_lines.append('fi')
                         else:
                             bare_lines.append('\t echo "Checking to see that sweep file exists and contains the sweepid"')

@@ -34,7 +34,7 @@ def get_args_parser():
                         help='gamma of exponential lr scheduler')
     
     # Model parameters
-    parser.add_argument('--model', type=str, default="basic_conv",
+    parser.add_argument('--model', type=str, default="basic_conv_256",
                         help='which model to use')
 
     # Dataset parameters
@@ -49,6 +49,7 @@ def get_args_parser():
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
     parser.add_argument('--dataset', default=None, type=str, help='dataset option')
+    parser.add_argument('--data_group', default=0, type=int)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -72,8 +73,8 @@ def main(args):
     # initilize wandb
     if args.use_wandb:
         wandb.init(project=args.project_name)
-        args.output_dir = os.path.join(args.output_dir, wandb.run.name)
-        args.log_dir = os.path.join(args.log_dir, wandb.run.name)
+        args.output_dir = os.path.join(args.output_dir, wandb.run.id)
+        args.log_dir = os.path.join(args.log_dir, wandb.run.id)
     device = torch.device(args.device)
 
     # fix seed for reproducibility
@@ -102,7 +103,7 @@ def main(args):
     print("Load model")
     autoencoder = build_autoencoder(args).to(device)
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.Adam(autoencoder.parameters(), lr=args.lr)
+    optimizer = torch.optim.Adam(autoencoder.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     lr_scheduler = ExponentialLR(optimizer, gamma=args.exp_lr_gamma)
     # information
     print(f"Number of parameters: {count_parameters(autoencoder)}")
@@ -111,7 +112,7 @@ def main(args):
     # train loop
     print(f"Start training for {args.epochs} epochs")
     for epoch in range(args.epochs):
-        visualize = epoch % 20 == 0 or epoch == args.epochs - 1 or True
+        visualize = epoch % 20 == 0 or epoch == args.epochs - 1
         train_loss = train_one_epoch(autoencoder=autoencoder,
                                      data_loader=data_loader_train,
                                      optimizer=optimizer,

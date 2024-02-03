@@ -8,18 +8,20 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
 class CIFAR100(Dataset):
-    def __init__(self, train_transform=None, val_transform=None, split='train', subset=1.0, group=1,
-                include_path=False, include_origin=False) -> None:
+    def __init__(self, train_transform=None, 
+                 minimum_transform=None,
+                 val_transform=None, split='train', subset=1.0, group=0,
+                 include_path=False) -> None:
         super().__init__()
         self.split = split
         self.train_transform = train_transform
         self.val_transform = val_transform
+        self.minimum_transform = minimum_transform
         self.group = group
         self.path = self._get_path()
         self.md = self._get_md()
         self.subset = subset
         self.include_path = include_path
-        self.include_origin = include_origin
     
     def __len__(self):
         return int(len(self.md) * self.subset)
@@ -36,32 +38,20 @@ class CIFAR100(Dataset):
         elif self.split == "val":
             return self._get_custom_item(self.val_transform, image, label, img_path)
         else:
-            return self._get_custom_item(self.minimum_transform(), image, label, img_path)
-
-    
-    def minimum_transform(self):
-        transform_train = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761])])
-        return transform_train
+            return self._get_custom_item(self.minimum_transform, image, label, img_path)
     
     def _get_custom_item(self, transform, image, label, img_path):
-        basic_transform = self.minimum_transform()
         if transform:
             transformed_image = transform(image)
         else:
-            transformed_image = basic_transform(image)
+            transformed_image = self.minimum_transform(image)
         # basic processing for original image
-        image = basic_transform(image)
-        if self.include_origin and self.include_path:
-            return transformed_image, label, image, img_path
-        elif self.include_origin:
-            return transformed_image, label, image
-        elif self.include_path:
-            return transformed_image, label, img_path
+        image = self.minimum_transform(image)
+        if self.include_path:
+            return transformed_image, image, label, img_path
         else:
-            return transformed_image, label
-    
+            return transformed_image, image, label
+
     def _get_path(self):
         if self.split == 'train':
             return config("CIFAR100_TRAIN_PATH")
@@ -73,7 +63,10 @@ class CIFAR100(Dataset):
     def _get_md(self):
         if self.split == 'train':
             df = pd.read_csv(config("CIFAR100_TRAIN_META_PATH"))
-            md = df.loc[df["group"] == self.group]
+            if self.group != 0:
+                md = df.loc[df["group"] == self.group]
+            else:
+                md = df
         elif self.split == 'val':
             md = pd.read_csv(config("CIFAR100_VAL_META_PATH"))
         else:

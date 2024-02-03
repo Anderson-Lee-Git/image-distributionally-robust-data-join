@@ -4,7 +4,7 @@ from .tiny_imagenet import TinyImagenet
 from .cifar_100 import CIFAR100
 from .cifar_100_pairs import CIFAR100Pairs
 from .cifar_100_c import CIFAR100_C
-from .aux_cifar_100 import AuxCIFAR100
+from .mix_cifar_100 import MixCIFAR100
 
 def get_mean_std(args):
     if "cifar100" in args.dataset:
@@ -23,7 +23,7 @@ def hard_transform(args):
         transforms.ToTensor(),
         transforms.RandomRotation(degrees=60),
         transforms.ColorJitter(0.4,0.4,0.4,0.1),
-        transforms.RandomErasing(p=0.5, scale=(0.01, 0.05), ratio=(0.8, 1.8)),
+        transforms.RandomErasing(p=0.3, scale=(0.01, 0.05), ratio=(0.8, 1.8)),
         transforms.Normalize(mean=mean, std=std)
     ])
     return transform
@@ -32,7 +32,11 @@ def simple_transform(args):
     # simple augmentation
     mean, std = get_mean_std(args)
     transform = transforms.Compose([
+        transforms.Resize(args.input_size),
+        transforms.RandomHorizontalFlip(),
         transforms.ToTensor(),
+        transforms.ColorJitter(0.4,0.4,0.4,0.1),
+        transforms.RandomRotation(degrees=60),
         transforms.Normalize(mean=mean, std=std)
     ])
     return transform
@@ -40,11 +44,12 @@ def simple_transform(args):
 def minimum_transform(args):
     mean, std = get_mean_std(args)
     transform_train = transforms.Compose([
+        transforms.Resize(args.input_size),
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std)])
     return transform_train
 
-def build_dataset(args, split="train", include_path=False, include_origin=False):
+def build_dataset(args, split="train", include_path=False):
     if split == "train" and "pairs" in args.dataset:
         if args.dataset == "tiny_imagenet_pairs":
             return TinyImagenetPairs(transform=simple_transform(args),
@@ -55,29 +60,22 @@ def build_dataset(args, split="train", include_path=False, include_origin=False)
     else:
         if args.dataset == "tiny_imagenet" or \
             args.dataset == "tiny_imagenet_pairs":
-            return TinyImagenet(train_transform=hard_transform(args),
+            return TinyImagenet(train_transform=simple_transform(args),
                                 val_transform=minimum_transform(args),
                                 split=split,
                                 subset=args.data_subset if split == 'train' else 1.0,
                                 group=args.data_group,
-                                include_path=include_path,
-                                include_origin=include_origin)
+                                include_path=include_path)
         elif args.dataset == "cifar100" or \
             args.dataset == "cifar100_pairs":
             return CIFAR100(train_transform=simple_transform(args),
                             val_transform=minimum_transform(args),
+                            minimum_transform=minimum_transform(args),
                             split=split,
                             subset=args.data_subset if split == 'train' else 1.0,
                             group=args.data_group,
-                            include_path=include_path,
-                            include_origin=include_origin)
+                            include_path=include_path)
         elif args.dataset == "cifar100_c":
             return CIFAR100_C(corruption=args.corruption,
                               severity=args.severity)
-        elif args.dataset == "aux_cifar100":
-            return AuxCIFAR100(train_transform=simple_transform(args),
-                               val_transform=minimum_transform(args),
-                               split=split,
-                               subset=args.data_subset if split == 'train' else 1.0)
-    
     raise NotImplementedError(f"{args.dataset} not supported")

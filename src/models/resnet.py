@@ -1,6 +1,9 @@
 import torch
 import torch.nn as  nn
 import torch.nn.functional as F
+from torchvision.models import resnet50, ResNet50_Weights
+
+from utils.init_utils import initialize_weights
 
 
 class Bottleneck(nn.Module):
@@ -58,11 +61,8 @@ class Block(nn.Module):
       identity = x.clone()
       x = self.relu(self.batch_norm2(self.conv1(x)))
       x = self.batch_norm2(self.conv2(x))
-
       if self.i_downsample is not None:
           identity = self.i_downsample(identity)
-      print(x.shape)
-      print(identity.shape)
       x += identity
       x = self.relu(x)
       return x
@@ -85,6 +85,9 @@ class ResNet(nn.Module):
         
         self.avgpool = nn.AdaptiveAvgPool2d((1,1))
         self.fc = nn.Linear(512*ResBlock.expansion, num_classes)
+
+        initialize_weights({}, self.modules())
+
         
     def forward(self, x):
         x = self.relu(self.batch_norm1(self.conv1(x))) # 64 x 16 x 16
@@ -129,7 +132,10 @@ def ResNet101(num_classes, channels=3):
 def ResNet152(num_classes, channels=3):
     return ResNet(Bottleneck, [3,8,36,3], num_classes, channels)
 
-def build_resnet(num_classes, channels=3, args=None):
+def build_resnet(num_classes, pretrained=False, channels=3, args=None):
+    if pretrained:
+        if args.model == "ResNet50":
+            return resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
     if args is not None:
         if args.model == "ResNet34":
             return ResNet34(num_classes, channels)

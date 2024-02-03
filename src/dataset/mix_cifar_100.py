@@ -10,7 +10,10 @@ config = Config(RepositoryEnv(".env"))
 
 from utils.visualization import visualize_image
 
-class AuxCIFAR100(Dataset):
+"""
+Obsolete
+"""
+class MixCIFAR100(Dataset):
     def __init__(self, train_transform=None, val_transform=None, split='train', subset=1.0) -> None:
         super().__init__()
         self.split = split
@@ -19,11 +22,11 @@ class AuxCIFAR100(Dataset):
         self.path = self._get_path()
         self.md = self._get_md()
         self.subset = subset
-        self.aux_set = self._get_aux_set()
+        self.aux_ti_indices, self.aux_data = self._get_auxset()
     
     def __len__(self):
         if self.split == "train":
-            return int((len(self.md) + len(self.aux_set["data"])) * self.subset)
+            return int((len(self.md) + len(self.aux_ti_indices)) * self.subset)
         else:
             return int(len(self.md) * self.subset)
     
@@ -36,7 +39,7 @@ class AuxCIFAR100(Dataset):
                 image = image.convert("RGB")
             else:
                 # image would be numpy.ndarray
-                image = self.aux_set["data"][index-len(self.md)]
+                image = self.aux_data[self.aux_ti_indices[index-len(self.md)]]["image"]
             if self.split == 'train':
                 transform = self.train_transform
             elif self.split == "val":
@@ -75,8 +78,9 @@ class AuxCIFAR100(Dataset):
         assert len(md) > 0
         return md
     
-    def _get_aux_set(self):
+    def _get_auxset(self):
         file_handle = open(config("CIFAR100_PSEUDO_PATH"), "rb")
         data = pickle.load(file_handle)
-        return data
+        ti_indices = list(data.keys())
+        return ti_indices, data
             
