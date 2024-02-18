@@ -11,11 +11,11 @@ def train_one_epoch(model: ResNet, data_loader: torch.utils.data.DataLoader,
     loss = 0
     batch_cnt = 0
     acc = 0
-    for step, (samples, _, labels) in enumerate(tqdm(data_loader)):
+    for step, sample in enumerate(tqdm(data_loader)):
         optimizer.zero_grad()
-        samples = samples.to(device, non_blocking=True)
-        labels = labels.to(device, non_blocking=True)
-        output = model(samples)
+        images = sample["image"].to(device, non_blocking=True)
+        labels = sample["label"].to(device, non_blocking=True)
+        output = model(images)
         batch_loss = criterion(output, labels)
         batch_loss.backward()
         optimizer.step()
@@ -37,10 +37,10 @@ def evaluate(model: ResNet, data_loader: torch.utils.data.DataLoader,
     acc = 0
     batch_cnt = 0
     with torch.no_grad():
-        for step, (samples, _, labels) in enumerate(tqdm(data_loader)):
-            samples = samples.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
-            output = model(samples)
+        for step, sample in enumerate(tqdm(data_loader)):
+            images = sample["image"].to(device, non_blocking=True)
+            labels = sample["label"].to(device, non_blocking=True)
+            output = model(images)
             batch_loss = criterion(output, labels)
             loss += batch_loss.item()
             # calculate acc

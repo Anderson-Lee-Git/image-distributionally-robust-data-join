@@ -25,10 +25,17 @@ class CIFAR100Pairs(Dataset):
         image_1 = PIL.Image.open(path_1).convert("RGB")
         image_2 = PIL.Image.open(path_2).convert("RGB")
         label = row["label_1"]  # label 2 is only for study usage
+        aux = row["superclass_2"]
         if self.transform:
             image_1 = self.transform(image_1)
             image_2 = self.transform(image_2)
-        return image_1, image_2, label
+        sample = {
+            "image_1": image_1,
+            "image_2": image_2,
+            "aux": aux,
+            "label": label
+        }
+        return sample
     
     def get_len_per_group(self):
         md = pd.read_csv(config("CIFAR100_TRAIN_META_PATH"))
@@ -39,4 +46,14 @@ class CIFAR100Pairs(Dataset):
 
     def _get_path(self):
         return config("CIFAR100_TRAIN_PATH")
+
+    @staticmethod
+    def collate_fn(batched_samples):
+        assert len(batched_samples) > 0
+        batch = {}
+        batch["image_1"] = torch.stack([sample["image_1"] for sample in batched_samples], dim=0)
+        batch["image_2"] = torch.stack([sample["image_2"] for sample in batched_samples], dim=0)
+        batch["label"] = torch.stack([torch.tensor(sample["label"]) for sample in batched_samples], dim=0)
+        batch["aux"] = torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0)
+        return batch
     

@@ -61,6 +61,9 @@ def main(args):
         wandb.init(project=args.project_name)
         args.output_dir = os.path.join(args.output_dir, wandb.run.name)
         args.log_dir = os.path.join(args.log_dir, wandb.run.name)
+        if not os.path.exists(os.path.join(args.output_dir, "examples")):
+            os.makedirs(os.path.join(args.output_dir, "examples"), exist_ok=True)
+        print(f"wandb run name: {wandb.run.name}")
     device = torch.device(args.device)
 
     # fix seed for reproducibility
@@ -76,6 +79,7 @@ def main(args):
     data_loader_test = DataLoader(dataset_test,
                                  batch_size=args.batch_size,
                                  num_workers=args.num_workers,
+                                 collate_fn=dataset_test.collate_fn,
                                  pin_memory=True)
     # set up log writer
     if args.log_dir is not None:

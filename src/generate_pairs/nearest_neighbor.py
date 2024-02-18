@@ -66,8 +66,8 @@ def main(args):
     path_root = get_latent_path(args)
     dim = args.dim
     k = args.k
-    db_file_1 = f"{args.dataset}_{dim}_group_1.npy"
-    db_file_2 = f"{args.dataset}_{dim}_group_2.npy"
+    db_file_1 = f"{args.dataset}_dim_{dim}_k_{k}_group_1.npy"
+    db_file_2 = f"{args.dataset}_dim_{dim}_k_{k}_group_2.npy"
     xb_1 = get_db(md=gp_1, db_file=db_file_1, path_root=path_root, dim=dim)
     xb_2 = get_db(md=gp_2, db_file=db_file_2, path_root=path_root, dim=dim)
     df_1 = generate_pairs(query_md=gp_1,
@@ -83,7 +83,7 @@ def main(args):
                           dim=dim,
                           k=k)
     # cifar100 only
-    superclass_map = open("/gscratch/cse/lee0618/cifar-100/meta/sub_to_superclass.json", "r")
+    superclass_map = open("/gscratch/cse/lee0618/cifar-100/meta/subclass_id_to_superclass_id.json", "r")
     superclass_map = json.load(superclass_map)
 
     res_df = pd.DataFrame(columns=["id_1", "id_2", "label_1", "label_2", "superclass_1", "superclass_2"])

@@ -28,30 +28,35 @@ class CIFAR100(Dataset):
     
     def __getitem__(self, index):
         row = self.md.iloc[index]
-        label = None
         img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
         label = row["label"]
+        aux = row["superclass"]
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
         if self.split == 'train':
-            return self._get_custom_item(self.train_transform, image, label, img_path)
+            transform = self.train_transform
         elif self.split == "val":
-            return self._get_custom_item(self.val_transform, image, label, img_path)
+            transform = self.val_transform
         else:
-            return self._get_custom_item(self.minimum_transform, image, label, img_path)
+            transform = self.minimum_transform
+        return self._get_custom_item(transform, image, label, aux, img_path)
     
-    def _get_custom_item(self, transform, image, label, img_path):
+    def _get_custom_item(self, transform, image, label, aux, img_path):
         if transform:
             transformed_image = transform(image)
         else:
             transformed_image = self.minimum_transform(image)
         # basic processing for original image
         image = self.minimum_transform(image)
-        if self.include_path:
-            return transformed_image, image, label, img_path
-        else:
-            return transformed_image, image, label
-
+        sample = {
+            "image": transformed_image,
+            "original_image": image,
+            "label": label,
+            "aux": aux,
+            "path": img_path
+        }
+        return sample
+    
     def _get_path(self):
         if self.split == 'train':
             return config("CIFAR100_TRAIN_PATH")

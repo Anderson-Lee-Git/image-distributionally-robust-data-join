@@ -6,14 +6,14 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss, Softmax
 import wandb
 
-from .resnet import ResNet50, ResNet34
 import models
+from models.build_baseline import build_resnet
 from utils.init_utils import initialize_weights
 from utils.visualization import visualize_image
 
 supported_backbone = [
-    "ResNet34",
-    "ResNet50"
+    "resnet34",
+    "resnet50"
 ]
 
 class DRDJVanilla(nn.Module):
@@ -22,12 +22,16 @@ class DRDJVanilla(nn.Module):
                  n_a: int, n_p: int,
                  lambda_1: float, lambda_2: float, lambda_3: float,
                  backbone: str, num_classes: int,
+                 embed_dim: int,
+                 objective: str,
                  args) -> None:
         super(DRDJVanilla, self).__init__()
         self.backbone = backbone
         self.num_classes = num_classes
-        self.model = self._build_backbone()
+        self.embed_dim = embed_dim
         self.args = args
+        self.model = self._build_backbone()
+        self.objective = objective
         # parameters
         self.alpha_a = nn.Parameter(torch.tensor([1.0]))
         self.alpha_p = nn.Parameter(torch.tensor([1.0]))
@@ -43,26 +47,37 @@ class DRDJVanilla(nn.Module):
         self.x_other = None
         self.embed = None
         self.embed_other = None
-        # initialize weights
-        self._initialize_weight()
+        # TODO: Not compatiable with imagenet pre-trained model
         self._load_pretrained_backbone()
         # take over classifier layer
-        self.fc = self.model.fc
+        self.fc = nn.Linear(self.embed_dim + 1, num_classes)
         self.model.fc = nn.Identity()
+        # initialize weights
+        self._initialize_weight()
 
     def freeze_params(self):
         for param in self.model.parameters():
             param.requires_grad = False
         assert self.fc.weight.requires_grad == True
     
-    def forward_eval(self, x):
+    def forward_eval(self, x, aux):
+        B = x.shape[0]
         embed = self.model(x)
+        if aux is None:
+            aux = torch.zeros(B, 1).cuda()
+        else:
+            aux = aux.view(B, 1)
+        embed = torch.concat([embed, aux], dim=1)
         return self.fc(embed)
-
-    def forward_loss(self, x, x_other, labels, include_max_term=False, include_norm=False):
+    
+    def forward_loss(self, x, x_other, aux, labels, include_max_term=False, include_norm=False):
+        aux = aux.view(-1, 1).to(torch.float32)
         embed = self.model(x)
         embed_other = self.model(x_other)
-        output = self.fc(embed)
+        if self.objective == "P":
+            output = self.fc(torch.concat([embed, aux], dim=1)).cuda()
+        else:
+            output = self.fc(torch.concat([embed_other, aux], dim=1)).cuda()
         B, L = output.shape
         cross_entropy_term = self.loss_fn(output, labels)
         # sum of misclassified logits
@@ -72,46 +87,64 @@ class DRDJVanilla(nn.Module):
         else:
             max_term = torch.zeros(1).cuda()
         if include_norm:
-            norm_term = self.alpha_a * torch.sigmoid(torch.linalg.vector_norm(embed - embed_other, dim=1))
+            norm_term = self.alpha_a * torch.linalg.vector_norm(embed.detach() - embed_other.detach(), dim=1)
         else:
             norm_term = torch.zeros(1).cuda()
-        try:
-            wandb.log({
-                "max_term": torch.mean(max_term),
-                "norm_term": torch.mean(norm_term)
-            })
-        except:
-            pass
+        # penalty term
+        penalty_term = self._penalty().cuda()
         summation_term = cross_entropy_term + max_term - norm_term
         # TODO: revisit the product of n_A and n_P
         loss = (self.alpha_a * self.r_a + self.alpha_p * self.r_p) + \
             (torch.mean(summation_term)) + \
-            self._penalty().cuda()
+            penalty_term
+        try:
+            wandb.log({
+                f"max_term ({self.objective})": torch.mean(max_term),
+                f"norm_term ({self.objective})": torch.mean(norm_term),
+                f"penalty_term ({self.objective})": penalty_term.item(),
+                f"cross_entropy_term ({self.objective})": torch.mean(cross_entropy_term).item()
+            }, commit=False)
+        except:
+            pass
         return output, loss
     
     def _penalty(self):
-        penalty_1 = self.lambda_1 * (torch.linalg.matrix_norm(self.fc.weight) - \
+        penalty_1 = self.lambda_1 * torch.relu(torch.linalg.matrix_norm(self.fc.weight[:, :self.embed_dim]) - \
                                      (self.alpha_a + self.alpha_p))
-        penalty_2 = 0  # TODO: theta_2
-        penalty_3 = self.lambda_3 * (self.alpha_a - self.alpha_p)
-        return torch.sum(torch.Tensor([penalty_1, penalty_2, penalty_3]))
+        penalty_2 = self.lambda_2 * torch.relu(torch.linalg.vector_norm(self.fc.weight[:, -1]) - \
+                                     (self.kappa_a * self.alpha_a))
+        if self.objective == "P":
+            penalty_3 = self.lambda_3 * torch.relu(self.alpha_p - self.alpha_a)
+        else:
+            penalty_3 = self.lambda_3 * torch.relu(self.alpha_a - self.alpha_p)
+        
+        try:
+            wandb.log({
+                f"penalty_term_1 ({self.objective})": penalty_1.item(),
+                f"penalty_term_2 ({self.objective})": penalty_2.item(),
+                f"penalty_term_3 ({self.objective})": penalty_3.item()
+            }, commit=False)
+        except:
+            pass
+        return penalty_1 + penalty_2 + penalty_3
     
     def _initialize_weight(self):
-        for m in self.model.modules():
-            if isinstance(m, models.resnet.Bottleneck) or \
-                isinstance(m, models.resnet.ResNet):
-                continue
-            else:
-                initialize_weights({}, m)
+        # for m in self.modules():
+        #     if isinstance(m, models.resnet.Bottleneck) or \
+        #         isinstance(m, models.resnet.ResNet):
+        #         continue
+        #     else:
+        #         initialize_weights({}, m)
+        initialize_weights({}, self.fc)
 
     def _build_backbone(self):
         if self.backbone not in supported_backbone:
             raise NotImplementedError(f"{self.backbone} not supported")
-        if self.backbone == "ResNet50":
-            return ResNet50(num_classes=self.num_classes, channels=3)
-        elif self.backbone == "ResNet34":
-            return ResNet34(num_classes=self.num_classes, channels=3)
-    
+        else:
+            model = build_resnet(num_classes=self.num_classes, pretrained=True,
+                                 args=self.args)
+            return model
+            
     def _load_pretrained_backbone(self):
         # load pretrained model
         if self.args.pretrained_path:

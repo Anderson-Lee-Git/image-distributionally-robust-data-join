@@ -4,7 +4,7 @@ import os
 import wandb
 from torch.utils.tensorboard import SummaryWriter
 
-def log_stats(stats: dict, log_writer: SummaryWriter, epoch: int, args):
+def log_stats(stats: dict, log_writer: SummaryWriter, epoch: int, args, commit=True):
     if log_writer is not None:
         log_writer.flush()
     with open(os.path.join(args.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
@@ -18,7 +18,7 @@ def log_stats(stats: dict, log_writer: SummaryWriter, epoch: int, args):
         print()
             
     if args.use_wandb:
-        wandb.log(stats)
+        wandb.log(stats, commit=commit)
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)

@@ -9,22 +9,28 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
+parser.add_argument('-A', type=str, default="stf")
+parser.add_argument('-p', type=str, default="ckpt")
 args = parser.parse_args()
 
 config = Config(RepositoryEnv(".env"))
 
+model = "resnet50"
+dataset = "cifar100_pairs"
+
+account = args.A
+partition = args.p
+
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"drdj_ResNet50_cifar_100_pretrained_backbone"
+name = f"drdj_vanilla_{model}_{dataset}_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
-account = "stf"
-partition = "ckpt"
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
@@ -34,9 +40,15 @@ logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
 num_runs = 10
 
-model = "ResNet50"
-
 # default commands and args
+epochs = 10
+batch_size = 48
+input_size = 224
+num_workers = 5
+data_subset = 1.0
+data_group = 1
+num_classes = 100
+freeze_param = False
 base_flags = [
     "${env}",
     "python",
@@ -46,34 +58,33 @@ base_flags = [
     f"--output_dir={logfolder}",
     f"--log_dir={logfolder}",
     f"--model={model}",
+    f"--batch_size={batch_size}",
+    f"--epochs={epochs}",
+    f"--input_size={input_size}",
+    f"--num_workers={num_workers}",
+    f"--data_subset={data_subset}",
+    f"--dataset={dataset}",
+    f"--data_group={data_group}",
+    f"--num_classes={num_classes}",
     "${args}"  # use args from configuration as command arguments
 ]
 
 sweep_configuration = {
     "method": "random",
-    "metric": {"goal": "maximize", "name": "val_acc"},
+    "metric": {"goal": "maximize", "name": "val_acc (P)"},
     "parameters":
     {
-        "batch_size": {"values": [512]},
-        "epochs": {"values": [100]},
-        "input_size": {"values": [32]},
-        "lr": {"values": [3e-2, 1e-2, 1e-3]},
-        "alpha_lr": {"values": [1e-4, 1e-5, 1e-6]},
-        "num_workers": {"values": [5]},
-        "data_subset": {"values": [1.0]},
-        "dataset": {"values": ["cifar100_pairs"]},
-        "data_group": {"values": [1]},
-        "num_classes": {"values": [100]},
-        "r_a": {"values": [1.0]},
-        "r_p": {"values": [1.0]},
-        "lambda_1": {"max": 10.0, "min": 1.0},
-        "lambda_2": {"values": [0.0]},
-        "lambda_3": {"max": 10.0, "min": 1.0},
-        "kappa_a": {"values": [5, 3]},
-        "kappa_p": {"values": [5, 3]},
+        "lr": {"max": 8e-5, "min": 1e-5},
+        "alpha_lr": {"max": 1e-4, "min": 1e-5},
+        "r_a": {"max": 5.0, "min": 3.0},
+        "r_p": {"max": 2.0, "min": 1.0},
+        "lambda_1": {"values": [3.0]},
+        "lambda_2": {"values": [3.0]},
+        "lambda_3": {"values": [8.0]},
+        "kappa_a": {"max": 4.0, "min": 2.0},
+        "kappa_p": {"max": 2.5, "min": 0.0},
         "weight_decay": {"values": [0.0001]},
-        "exp_lr_gamma": {"values": [0.999]},
-        "pretrained_path": {"values": ["/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/resnet_50_baseline_cifar_100/sandy-sweep-3/checkpoint-299.pth"]}
+        "exp_lr_gamma": {"values": [0.998]}
     },
     "command": base_flags
 }

@@ -1,3 +1,4 @@
+import torch
 from torchvision.transforms import transforms
 from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
@@ -49,33 +50,57 @@ def minimum_transform(args):
         transforms.Normalize(mean=mean, std=std)])
     return transform_train
 
+def collate_fn(batched_samples):
+    assert len(batched_samples) > 0
+    batch = {}
+    batch["image"] = torch.stack([sample["image"] for sample in batched_samples], dim=0)
+    batch["label"] = torch.stack([torch.tensor(sample["label"]) for sample in batched_samples], dim=0)
+    if "original_image" in batched_samples[0]:
+        batch["original_image"] = torch.stack([sample["original_image"] for sample in batched_samples], dim=0)
+    if "aux" in batched_samples[0]:
+        batch["aux"] = torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0)
+    for k in batched_samples[0]:
+        if k not in batch:
+            batch[k] = [sample[k] for sample in batched_samples]
+    return batch
+
 def build_dataset(args, split="train", include_path=False):
     if split == "train" and "pairs" in args.dataset:
         if args.dataset == "tiny_imagenet_pairs":
-            return TinyImagenetPairs(transform=simple_transform(args),
-                                    subset=args.data_subset)
+            dataset = TinyImagenetPairs(transform=simple_transform(args),
+                                        subset=args.data_subset)
+            dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100_pairs":
-            return CIFAR100Pairs(transform=simple_transform(args),
+            dataset = CIFAR100Pairs(transform=simple_transform(args),
                                 subset=args.data_subset)
+            dataset.collate_fn = CIFAR100Pairs.collate_fn
+        else:
+            raise NotImplementedError(f"{args.dataset} not supported")
+        return dataset
     else:
         if args.dataset == "tiny_imagenet" or \
             args.dataset == "tiny_imagenet_pairs":
-            return TinyImagenet(train_transform=simple_transform(args),
+            dataset = TinyImagenet(train_transform=simple_transform(args),
                                 val_transform=minimum_transform(args),
                                 split=split,
                                 subset=args.data_subset if split == 'train' else 1.0,
                                 group=args.data_group,
                                 include_path=include_path)
+            dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100" or \
             args.dataset == "cifar100_pairs":
-            return CIFAR100(train_transform=simple_transform(args),
+            dataset = CIFAR100(train_transform=simple_transform(args),
                             val_transform=minimum_transform(args),
                             minimum_transform=minimum_transform(args),
                             split=split,
                             subset=args.data_subset if split == 'train' else 1.0,
                             group=args.data_group,
                             include_path=include_path)
+            dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100_c":
-            return CIFAR100_C(corruption=args.corruption,
+            dataset = CIFAR100_C(corruption=args.corruption,
                               severity=args.severity)
-    raise NotImplementedError(f"{args.dataset} not supported")
+            dataset.collate_fn = collate_fn
+        else:
+            raise NotImplementedError(f"{args.dataset} not supported")
+        return dataset

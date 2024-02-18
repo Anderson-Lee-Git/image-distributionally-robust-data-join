@@ -13,13 +13,15 @@ def train_one_epoch(model: DRDJVanilla,
     loss = 0
     batch_cnt = 0
     acc = 0
-    for step, (x1, x2, labels) in enumerate(tqdm(data_loader)):
+    for step, sample in enumerate(tqdm(data_loader)):
         optimizer.zero_grad()
-        x1 = x1.to(device, non_blocking=True)
-        x2 = x2.to(device, non_blocking=True)
-        labels = labels.to(device, non_blocking=True)
+        x1 = sample["image_1"].to(device, non_blocking=True)
+        x2 = sample["image_2"].to(device, non_blocking=True)
+        aux = sample["aux"].to(device, non_blocking=True)
+        labels = sample["label"].to(device, non_blocking=True)
         output, batch_loss = model.forward_loss(x=x1,
                                                 x_other=x2,
+                                                aux=aux,
                                                 labels=labels,
                                                 include_max_term=include_max_term,
                                                 include_norm=include_norm)
@@ -46,10 +48,11 @@ def evaluate(model: DRDJVanilla, data_loader: torch.utils.data.DataLoader,
     acc = 0
     batch_cnt = 0
     with torch.no_grad():
-        for step, (images, labels) in enumerate(tqdm(data_loader)):
-            images = images.to(device, non_blocking=True)
-            labels = labels.to(device, non_blocking=True)
-            output = model.forward_eval(images)
+        for step, sample in enumerate(tqdm(data_loader)):
+            images = sample["image"].to(device, non_blocking=True)
+            labels = sample["label"].to(device, non_blocking=True)
+            auxs = sample["aux"].to(device, non_blocking=True)
+            output = model.forward_eval(images, auxs)
             batch_loss = criterion(output, labels)
             loss += batch_loss.item()
             # calculate acc

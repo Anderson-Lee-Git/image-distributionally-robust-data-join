@@ -4,23 +4,49 @@ import sys
 sys.path.insert(0, ".")
 
 import PIL
+import torch
 from torch.utils.data import DataLoader, RandomSampler
 import pandas as pd
 from torchvision import transforms
+from cifar_100_pairs import CIFAR100Pairs
+from cifar_100 import CIFAR100
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
-from aux_cifar_100 import AuxCIFAR100
+# Actual collate fn in datasets.py
+def collate_fn(batched_samples):
+    assert len(batched_samples) > 0
+    batch = {}
+    batch["image"] = torch.stack([sample["image"] for sample in batched_samples], dim=0)
+    batch["label"] = torch.stack([torch.tensor(sample["label"]) for sample in batched_samples], dim=0)
+    if "original_image" in batched_samples[0]:
+        batch["original_image"] = torch.stack([sample["original_image"] for sample in batched_samples], dim=0)
+    if "aux" in batched_samples[0]:
+        batch["aux"] = torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0)
+    for k in batched_samples[0]:
+        if k not in batch:
+            batch[k] = [sample[k] for sample in batched_samples]
+    return batch
 
-dataset = AuxCIFAR100(train_transform=transforms.Compose([
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761])]),
-                        val_transform=transforms.Compose([
-                                        transforms.ToTensor(),
-                                        transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761])]),
-                        split="train")
+transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761])])
+dataset = CIFAR100(train_transform=transform,
+                   minimum_transform=transform,
+                   val_transform=transform,
+                    subset=1.0)
 sampler_train = RandomSampler(dataset)
-dataloader = DataLoader(dataset, batch_size=64, sampler=sampler_train)
-for i, image in enumerate(dataloader):
-    print(type(image))
-    print(image.shape)
+dataloader = DataLoader(dataset, batch_size=20, sampler=sampler_train, collate_fn=collate_fn)
+for i, sample in enumerate(dataloader):
+    images = sample["image"]
+    labels = sample["label"]
+    aux = sample["aux"]
+    # print(labels)
+    print(images.shape)
+    print(type(images))
+    print(labels.shape)
+    print(type(labels))
+    print(aux.shape)
+    print(type(aux))
+    break
+    

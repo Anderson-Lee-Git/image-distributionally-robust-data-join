@@ -54,9 +54,8 @@ class ResNet(nn.Module):
         if pretrained:
             print("Using pretrained weights")
             self.encoder = resnet50(weights=ResNet50_Weights.DEFAULT)
-            self.encoder.fc = self.fc
+            self.encoder.fc = nn.Identity()
             self.avpool = nn.Identity()
-            self.fc = nn.Identity()
         else:
             for m in self.modules():
                 if isinstance(m, nn.Conv2d):
