@@ -56,7 +56,7 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
-        "batch_size": {"values": [128]},
+        "batch_size": {"values": [256]},
         "epochs": {"values": [30]},
         "input_size": {"values": [224]},
         "num_classes": {"values": [100]},

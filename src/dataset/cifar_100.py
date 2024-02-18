@@ -1,6 +1,7 @@
 import os
 
 import PIL
+import torch
 from torch.utils.data import Dataset
 import pandas as pd
 from torchvision import transforms
@@ -29,8 +30,8 @@ class CIFAR100(Dataset):
     def __getitem__(self, index):
         row = self.md.iloc[index]
         img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
-        label = row["label"]
-        aux = row["superclass"]
+        label = torch.tensor(row["label"])
+        aux = torch.tensor(row["superclass"])
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
         if self.split == 'train':

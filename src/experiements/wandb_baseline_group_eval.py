@@ -9,46 +9,42 @@ parser = argparse.ArgumentParser(description='Compute script.')
 parser.add_argument('--dry', action='store_true')
 parser.add_argument('--verbose', action='store_true')
 parser.add_argument('--p', type=float, default=1.0, help='Probability with which to select a configuration.')
+parser.add_argument('-A', type=str, default="stf")
+parser.add_argument('-p', type=str, default="ckpt")
 args = parser.parse_args()
 
 config = Config(RepositoryEnv(".env"))
 
+model = "resnet50"
+dataset = "cifar100"
+
 # sbatch details
+account = args.A
+partition = args.p
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"eval_mae_tiny_imagenet_patch4_emb64_dec256_data_group_2"
+name = f"{model}_baseline_{dataset}_group_eval_{partition}"
 cores_per_job = 5
 mem = 64
-time_hours = 8
+time_hours = 24
 time_minutes = 0
 constraint = ""
 exclude = ""
 
 repo = config("GIT_HOME")
 change_dir = config("GIT_HOME")
-scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name)
+scheduler = HyakScheduler(verbose=args.verbose, use_wandb=True, exp_name=name, account=account, partition=partition)
 ckpt_base_dir = config("LOG_HOME")
 logfolder = os.path.join(ckpt_base_dir, name)
 sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
-
-# sweep directory to evaluate
-eval_sweep_dir = "/gscratch/jamiemmt/andersonlee/mae/logs/mae_tiny_imagenet_patch4_emb64_dec256_data_group_2"
-ckpt_list = []
-# find latest checkpoints in the sweep
-for root, dirs, files in os.walk(eval_sweep_dir):
-    for file in files:
-        if file.endswith("79.pth"):
-            ckpt_list.append(os.path.join(root, file))
-num_runs = len(ckpt_list)
+num_runs = 1
 
 # default commands and args
 base_flags = [
     "${env}",
     "python",
-    "main_pretrain.py",
-    "--evaluate",
+    "baseline/group_eval.py",
     "--use_wandb",
-    "--norm_pix_loss",
     f"--project_name={name}",
     f"--output_dir={logfolder}",
     f"--log_dir={logfolder}",
@@ -57,21 +53,19 @@ base_flags = [
 
 sweep_configuration = {
     "method": "random",
-    "metric": {"goal": "minimize", "name": "val_loss"},
+    "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
-        "batch_size": {"values": [512]},
-        "model": {"values": ["mae_vit_base_patch4_emb64"]},
-        "input_size": {"values": [64]},
-        "dataset": {"values": ["tiny_imagenet"]},
-        "data_group": {"values": [1]},
+        "batch_size": {"values": [256]},
+        "input_size": {"values": [224]},
+        "num_classes": {"values": [100]},
+        "num_groups": {"values": [20]},
+        "dataset": {"values": [dataset]},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
-        "evaluate_ckpt": {"values": ckpt_list},
-        "patch_size": {"values": [4]},
-        "embed_dim": {"values": [64]},
-        "decoder_embed_dim": {"values": [256]},
-        "num_heads": {"values": [8]}
+        "data_group": {"values": [1]},
+        "model": {"values": [model]},
+        "evaluate_ckpt": {"values": ["/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/resnet50_baseline_cifar100_gpu-a100/clean-sweep-1/checkpoint-29.pth"]}
     },
     "command": base_flags
 }

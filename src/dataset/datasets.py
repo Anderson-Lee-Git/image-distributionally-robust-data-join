@@ -54,15 +54,41 @@ def collate_fn(batched_samples):
     assert len(batched_samples) > 0
     batch = {}
     batch["image"] = torch.stack([sample["image"] for sample in batched_samples], dim=0)
-    batch["label"] = torch.stack([torch.tensor(sample["label"]) for sample in batched_samples], dim=0)
+    batch["label"] = torch.stack([sample["label"] for sample in batched_samples], dim=0)
     if "original_image" in batched_samples[0]:
         batch["original_image"] = torch.stack([sample["original_image"] for sample in batched_samples], dim=0)
     if "aux" in batched_samples[0]:
-        batch["aux"] = torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0)
+        batch["aux"] = torch.stack([sample["aux"] for sample in batched_samples], dim=0)
     for k in batched_samples[0]:
         if k not in batch:
             batch[k] = [sample[k] for sample in batched_samples]
     return batch
+
+class GroupCollateFnClass:
+    group = 0
+
+    @staticmethod
+    def group_filter_collate_fn(batched_samples):
+        assert len(batched_samples) > 0
+        batch = {}
+        batch["image"] = []
+        batch["label"] = []
+        batch["aux"] = []
+        if "original_image" in batched_samples[0]:
+            batch["original_image"] = []
+        group = torch.tensor(GroupCollateFnClass.group)
+        for sample in batched_samples:
+            if sample["aux"] == group:
+                batch["image"].append(sample["image"])
+                batch["label"].append(sample["label"])
+                batch["aux"].append(sample["aux"])
+                if "original_image" in batched_samples[0]:
+                    batch["original_image"].append(sample["original_image"])
+        for key in batch:
+            if len(batch[key]) == 0:
+                return {}
+            batch[key] = torch.stack(batch[key], dim=0)
+        return batch
 
 def build_dataset(args, split="train", include_path=False):
     if split == "train" and "pairs" in args.dataset:

@@ -26,7 +26,7 @@ def get_args_parser():
     parser.add_argument('--epochs', default=80, type=int)
 
     # Model parameters
-    parser.add_argument('--model', default='ResNet50', type=str)
+    parser.add_argument('--model', default='resnet50', type=str)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,

@@ -131,19 +131,3 @@ def ResNet101(num_classes, channels=3):
 
 def ResNet152(num_classes, channels=3):
     return ResNet(Bottleneck, [3,8,36,3], num_classes, channels)
-
-def build_resnet(num_classes, pretrained=False, channels=3, args=None):
-    if pretrained:
-        if args.model == "ResNet50":
-            return resnet50(weights=ResNet50_Weights.IMAGENET1K_V1)
-    if args is not None:
-        if args.model == "ResNet34":
-            return ResNet34(num_classes, channels)
-        elif args.model == "ResNet50":
-            return ResNet50(num_classes, channels)
-        elif args.model == "ResNet101":
-            return ResNet101(num_classes, channels)
-        else:
-            raise NotImplementedError(f"{args.model} not supported")
-    else:
-        raise NotImplementedError(f"Please provide model type in args")

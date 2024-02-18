@@ -38,6 +38,8 @@ def evaluate(model: ResNet, data_loader: torch.utils.data.DataLoader,
     batch_cnt = 0
     with torch.no_grad():
         for step, sample in enumerate(tqdm(data_loader)):
+            if sample == {}:
+                continue
             images = sample["image"].to(device, non_blocking=True)
             labels = sample["label"].to(device, non_blocking=True)
             output = model(images)
