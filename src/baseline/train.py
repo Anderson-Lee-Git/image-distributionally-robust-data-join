@@ -20,7 +20,7 @@ from utils.logs import log_stats, count_parameters
 from dataset.datasets import build_dataset
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
+    parser = argparse.ArgumentParser('baseline training', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     parser.add_argument('--epochs', default=80, type=int)
@@ -38,9 +38,9 @@ def get_args_parser():
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -56,6 +56,7 @@ def get_args_parser():
     parser.add_argument('--data_subset', default=1.0, type=float,
                         help='subset of data to use')
     parser.add_argument('--data_group', default=1, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     # misc
     parser.add_argument('--use_wandb', action='store_true', default=False)

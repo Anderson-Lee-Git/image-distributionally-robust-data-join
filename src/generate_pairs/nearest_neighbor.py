@@ -12,17 +12,31 @@ config = Config(RepositoryEnv(".env"))
 def get_args_parser():
     parser = argparse.ArgumentParser("Latent nearest neighbor pairing")
     parser.add_argument('--dataset', default=None, type=str)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
     parser.add_argument('--dim', default=None, type=int)
     parser.add_argument('--k', default=4, type=int, help="k nearest neighbor")
     return parser
 
 def get_metadata_path(args):
     if args.dataset == "cifar100":
-        return config("CIFAR100_TRAIN_META_PATH")
+        if args.unbalanced:
+            return config("CIFAR100_TRAIN_UNBALANCED_META_PATH")
+        else:
+            return config("CIFAR100_TRAIN_META_PATH")
+
+def get_store_path(args):
+    if args.dataset == "cifar100":
+        if args.unbalanced:
+            return config("CIFAR100_PAIRS_UNBALANCED_META_PATH")
+        else:
+            return config("CIFAR100_PAIRS_META_PATH")
 
 def get_latent_path(args):
     if args.dataset == "cifar100":
-        return config("CIFAR100_TRAIN_LATENT_PATH")
+        if args.unbalanced:
+            return config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
+        else:
+            return config("CIFAR100_TRAIN_LATENT_PATH")
 
 def get_db(md, db_file, path_root, dim):
     print(f"Number of rows in metadata: {len(md)}")
@@ -60,14 +74,13 @@ def generate_pairs(query_md, target_md, query_db, target_db, dim, k):
 def main(args):
     # load meta data
     md = pd.read_csv(get_metadata_path(args))
-    gp_1 = md.loc[md["group"] == 1]
-    gp_2 = md.loc[md["group"] == 2]
-    # TODO: construct indices for latents for group 1 and group 2 respectively
+    gp_1 = pd.DataFrame(md.loc[md["group"] == 1])
+    gp_2 = pd.DataFrame(md.loc[md["group"] == 2])
     path_root = get_latent_path(args)
     dim = args.dim
     k = args.k
-    db_file_1 = f"{args.dataset}_dim_{dim}_k_{k}_group_1.npy"
-    db_file_2 = f"{args.dataset}_dim_{dim}_k_{k}_group_2.npy"
+    db_file_1 = f"{'unb_' if args.unbalanced else ''}{args.dataset}_dim_{dim}_k_{k}_group_1.npy"
+    db_file_2 = f"{'unb_' if args.unbalanced else ''}{args.dataset}_dim_{dim}_k_{k}_group_2.npy"
     xb_1 = get_db(md=gp_1, db_file=db_file_1, path_root=path_root, dim=dim)
     xb_2 = get_db(md=gp_2, db_file=db_file_2, path_root=path_root, dim=dim)
     df_1 = generate_pairs(query_md=gp_1,
@@ -123,7 +136,8 @@ def main(args):
     # attr: class id
     # attr: label (number)
     print(res_df.iloc[:10])
-    res_df.to_csv(config("CIFAR100_PAIRS_META_PATH"))
+    print(f"total number of pairs: {len(res_df)}")
+    res_df.to_csv(get_store_path(args))
 
 if __name__ == "__main__":
     args = get_args_parser()

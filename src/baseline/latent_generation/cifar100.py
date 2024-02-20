@@ -21,6 +21,11 @@ from utils.logs import log_stats, count_parameters
 from dataset.datasets import build_dataset
 from models import build_resnet
 
+def get_latent_path(args):
+    if args.unbalanced:
+        return config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
+    else:
+        return config("CIFAR100_TRAIN_LATENT_PATH")
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Convolution Autoencoder inference', add_help=False)
@@ -33,17 +38,18 @@ def get_args_parser():
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=32)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--resume', default='',
                         help='resume from checkpoint')
-    parser.add_argument('--dataset', default=None, type=str, help='dataset option')
+    parser.add_argument('--dataset', default="cifar100", type=str, help='dataset option')
     parser.add_argument('--data_group', default=0, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
                         help='start epoch')
@@ -84,10 +90,14 @@ def main(args):
     model.fc = nn.Identity()
     model.to(device)
 
-    latent_dir = config("CIFAR100_TRAIN_LATENT_PATH")
+    latent_dir = get_latent_path(args)
 
-    for images, original_images, labels, paths in tqdm(dataloader):
+    print(f"output latent directory: {latent_dir}")
+    for samples in tqdm(dataloader):
         dst_dirs = []
+        original_images = samples["original_image"]
+        labels = samples["label"]
+        paths = samples["path"]
         for i, path in enumerate(paths):
             image_id = path.split("/")[-1].split(".")[0] + ".npy"
             class_path = os.path.join(latent_dir, str(labels[i].item()))
@@ -97,7 +107,6 @@ def main(args):
             dst_dirs.append(dst_dir)
         original_images = original_images.to(device)
         latents = model(original_images)
-        print(latents.shape)
         latents = latents.cpu().numpy()
         for i, dst_dir in enumerate(dst_dirs):
             np.save(dst_dir, latents[i])

@@ -121,6 +121,7 @@ def build_dataset(args, split="train", include_path=False):
                             split=split,
                             subset=args.data_subset if split == 'train' else 1.0,
                             group=args.data_group,
+                            unbalanced=args.unbalanced,
                             include_path=include_path)
             dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100_c":

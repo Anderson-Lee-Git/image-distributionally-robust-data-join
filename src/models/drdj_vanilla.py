@@ -23,14 +23,21 @@ class DRDJVanilla(nn.Module):
                  lambda_1: float, lambda_2: float, lambda_3: float,
                  backbone: str, num_classes: int,
                  embed_dim: int,
+                 aux_embed_dim: int,
                  objective: str,
                  args) -> None:
         super(DRDJVanilla, self).__init__()
         self.backbone = backbone
         self.num_classes = num_classes
         self.embed_dim = embed_dim
+        self.aux_embed_dim = aux_embed_dim
         self.args = args
-        self.model = self._build_backbone()
+        self.encoder = self._build_backbone()
+        self.aux_encoder = nn.Sequential(
+            nn.Linear(1, 16),
+            nn.ReLU(),
+            nn.Linear(16, self.aux_embed_dim)
+        )
         self.objective = objective
         # parameters
         self.alpha_a = nn.Parameter(torch.tensor([1.0]))
@@ -50,34 +57,40 @@ class DRDJVanilla(nn.Module):
         # TODO: Not compatiable with imagenet pre-trained model
         self._load_pretrained_backbone()
         # take over classifier layer
-        self.fc = nn.Linear(self.embed_dim + 1, num_classes)
-        self.model.fc = nn.Identity()
+        self.fc = nn.Sequential(
+            nn.Linear(self.embed_dim + self.aux_embed_dim, 1024),
+            nn.ReLU(),
+            nn.Linear(1024, self.num_classes)
+        )
+        self.encoder.fc = nn.Identity()
         # initialize weights
         self._initialize_weight()
 
     def freeze_params(self):
-        for param in self.model.parameters():
+        for param in self.encoder.parameters():
             param.requires_grad = False
         assert self.fc.weight.requires_grad == True
     
     def forward_eval(self, x, aux):
         B = x.shape[0]
-        embed = self.model(x)
         if aux is None:
-            aux = torch.zeros(B, 1).cuda()
+            aux = torch.zeros(B, 1).to(torch.float32).cuda()
         else:
-            aux = aux.view(B, 1)
-        embed = torch.concat([embed, aux], dim=1)
+            aux = aux.view(B, 1).to(torch.float32).cuda()
+        embed = self.encoder(x)
+        aux_embed = self.aux_encoder(aux)
+        embed = torch.concat([embed, aux_embed], dim=1)
         return self.fc(embed)
     
     def forward_loss(self, x, x_other, aux, labels, include_max_term=False, include_norm=False):
         aux = aux.view(-1, 1).to(torch.float32)
-        embed = self.model(x)
-        embed_other = self.model(x_other)
+        aux_embed = self.aux_encoder(aux)
+        embed = self.encoder(x)
+        embed_other = self.encoder(x_other)
         if self.objective == "P":
-            output = self.fc(torch.concat([embed, aux], dim=1)).cuda()
+            output = self.fc(torch.concat([embed, aux_embed], dim=1)).cuda()
         else:
-            output = self.fc(torch.concat([embed_other, aux], dim=1)).cuda()
+            output = self.fc(torch.concat([embed_other, aux_embed], dim=1)).cuda()
         B, L = output.shape
         cross_entropy_term = self.loss_fn(output, labels)
         # sum of misclassified logits
@@ -109,9 +122,9 @@ class DRDJVanilla(nn.Module):
         return output, loss
     
     def _penalty(self):
-        penalty_1 = self.lambda_1 * torch.relu(torch.linalg.matrix_norm(self.fc.weight[:, :self.embed_dim]) - \
+        penalty_1 = self.lambda_1 * torch.relu(torch.linalg.matrix_norm(self.fc[0].weight[:, :self.embed_dim]) - \
                                      (self.alpha_a + self.alpha_p))
-        penalty_2 = self.lambda_2 * torch.relu(torch.linalg.vector_norm(self.fc.weight[:, -1]) - \
+        penalty_2 = self.lambda_2 * torch.relu(torch.linalg.vector_norm(self.fc[0].weight[:, -1]) - \
                                      (self.kappa_a * self.alpha_a))
         if self.objective == "P":
             penalty_3 = self.lambda_3 * torch.relu(self.alpha_p - self.alpha_a)
@@ -150,6 +163,4 @@ class DRDJVanilla(nn.Module):
         if self.args.pretrained_path:
             print(f"Load backbone from {self.args.pretrained_path}")
             state_dict = torch.load(self.args.pretrained_path, "cuda")
-            self.model.load_state_dict(state_dict["model"])
-        
-    
+            self.encoder.load_state_dict(state_dict["model"])

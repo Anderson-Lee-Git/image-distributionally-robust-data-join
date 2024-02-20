@@ -36,6 +36,7 @@ def get_args_parser():
     parser.add_argument('--model', default='resnet50', type=str)
     parser.add_argument('--pretrained_path', default=None, type=str)
     parser.add_argument('--embed_dim', default=2048, type=int)
+    parser.add_argument('--aux_embed_dim', default=32, type=int)
     parser.add_argument('--freeze_params', default=False, type=bool)
 
     # Optimizer parameters
@@ -44,20 +45,16 @@ def get_args_parser():
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
     parser.add_argument('--alpha_lr', type=float, default=None)
+    parser.add_argument('--cls_lr', type=float, default=1e-4)
+    parser.add_argument('--aux_lr', type=float, default=1e-4)
     parser.add_argument('--exp_lr_gamma', type=float, default=1.0,
                         help='gamma of exponential lr scheduler')
-    # parser.add_argument('--blr', type=float, default=1e-3, metavar='LR',
-    #                     help='base learning rate: absolute_lr = base_lr * total_batch_size / 256')
-    # parser.add_argument('--min_lr', type=float, default=0., metavar='LR',
-    #                     help='lower lr bound for cyclic schedulers that hit 0')
-    # parser.add_argument('--warmup_epochs', type=int, default=40, metavar='N',
-    #                     help='epochs to warmup LR')
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/logs/srun',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -73,6 +70,7 @@ def get_args_parser():
     parser.add_argument('--data_subset', default=1.0, type=float,
                         help='subset of data to use')
     parser.add_argument('--data_group', default=1, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     # misc
     parser.add_argument('--use_wandb', action='store_true', default=False)
@@ -85,11 +83,16 @@ def get_args_parser():
                         help="checkpoint path of model to evaluate")
     return parser
 
-def get_optimizer(model, args):
-    optimizer = torch.optim.Adam(model.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+def get_optimizer(model: DRDJVanilla, args):
+    optimizer = torch.optim.Adam(model.encoder.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer.add_param_group({
+        'params': model.aux_encoder.parameters(),
+        'lr': args.aux_lr,
+        "weight_decay": args.weight_decay
+    })
     optimizer.add_param_group({
         'params': model.fc.parameters(),
-        'lr': args.lr,
+        'lr': args.cls_lr,
         "weight_decay": args.weight_decay
     })
     optimizer.add_param_group({
@@ -112,6 +115,7 @@ def get_model(n_a, n_p, objective, args):
                         backbone=args.model,
                         num_classes=args.num_classes,
                         embed_dim=args.embed_dim,
+                        aux_embed_dim=args.aux_embed_dim,
                         objective=objective,
                         args=args)
     return model

@@ -24,7 +24,7 @@ partition = args.p
 # sbatch details
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"drdj_vanilla_{model}_{dataset}_{partition}"
+name = f"drdj_deep_aux_{model}_{dataset}_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 24
@@ -74,16 +74,18 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val_acc (P)"},
     "parameters":
     {
-        "lr": {"max": 8e-5, "min": 1e-5},
+        "lr": {"max": 1e-4, "min": 1e-5},
         "alpha_lr": {"max": 1e-4, "min": 1e-5},
-        "r_a": {"max": 5.0, "min": 3.0},
-        "r_p": {"max": 2.0, "min": 1.0},
+        "cls_lr": {"max": 1e-4, "min": 1e-6},
+        "aux_lr": {"max": 1e-4, "min": 1e-5},
+        "r_a": {"max": 5.0, "min": 1.0},
+        "r_p": {"max": 5.0, "min": 1.0},
         "lambda_1": {"values": [3.0]},
         "lambda_2": {"values": [3.0]},
-        "lambda_3": {"values": [8.0]},
-        "kappa_a": {"max": 4.0, "min": 2.0},
-        "kappa_p": {"max": 2.5, "min": 0.0},
-        "weight_decay": {"values": [0.0001]},
+        "lambda_3": {"values": [10.0]},
+        "kappa_a": {"max": 5.0, "min": 1.0},
+        "kappa_p": {"max": 5.0, "min": 1.0},
+        "weight_decay": {"max": 5e-4, "min": 1e-4},
         "exp_lr_gamma": {"values": [0.998]}
     },
     "command": base_flags

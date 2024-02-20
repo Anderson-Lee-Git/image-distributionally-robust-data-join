@@ -12,6 +12,7 @@ class CIFAR100(Dataset):
     def __init__(self, train_transform=None, 
                  minimum_transform=None,
                  val_transform=None, split='train', subset=1.0, group=0,
+                 unbalanced=False,
                  include_path=False) -> None:
         super().__init__()
         self.split = split
@@ -19,6 +20,7 @@ class CIFAR100(Dataset):
         self.val_transform = val_transform
         self.minimum_transform = minimum_transform
         self.group = group
+        self.unbalanced = unbalanced
         self.path = self._get_path()
         self.md = self._get_md()
         self.subset = subset
@@ -68,7 +70,10 @@ class CIFAR100(Dataset):
     
     def _get_md(self):
         if self.split == 'train':
-            df = pd.read_csv(config("CIFAR100_TRAIN_META_PATH"))
+            if self.unbalanced:
+                df = pd.read_csv(config("CIFAR100_TRAIN_UNBALANCED_META_PATH"))
+            else:
+                df = pd.read_csv(config("CIFAR100_TRAIN_META_PATH"))
             if self.group != 0:
                 md = df.loc[df["group"] == self.group]
             else:

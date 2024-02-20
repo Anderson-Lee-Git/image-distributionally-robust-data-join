@@ -23,7 +23,7 @@ account = args.A
 partition = args.p
 gpus = 1
 cmd = "wandb agent --count 1 "
-name = f"{model}_baseline_{dataset}_{partition}"
+name = f"{model}_baseline_unbalanced_{dataset}_{partition}"
 cores_per_job = 5
 mem = 64
 time_hours = 24
@@ -48,6 +48,7 @@ base_flags = [
     f"--project_name={name}",
     f"--output_dir={logfolder}",
     f"--log_dir={logfolder}",
+    "--unbalanced",
     "${args}"  # use args from configuration as command arguments
 ]
 
@@ -56,16 +57,16 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val_acc"},
     "parameters":
     {
-        "batch_size": {"values": [256]},
+        "batch_size": {"values": [64]},
         "epochs": {"values": [30]},
         "input_size": {"values": [224]},
         "num_classes": {"values": [100]},
         "dataset": {"values": [dataset]},
-        "lr": {"max": 3e-4, "min": 1e-5},
+        "lr": {"max": 1e-4, "min": 1e-5},
         "num_workers": {"values": [5]},
         "data_subset": {"values": [1.0]},
         "data_group": {"values": [1]},
-        "weight_decay": {"values": [0.0004, 0.0003]},
+        "weight_decay": {"values": [0.0004, 0.0003, 0.0002]},
         "exp_lr_gamma": {"values": [0.999, 0.998, 0.997]},
         "model": {"values": [model]}
     },

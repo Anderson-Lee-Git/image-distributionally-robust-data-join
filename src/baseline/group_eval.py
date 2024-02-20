@@ -19,7 +19,7 @@ from utils.logs import log_stats
 from dataset.datasets import build_dataset, GroupCollateFnClass
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
+    parser = argparse.ArgumentParser('Baseline group evaluation', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # Model parameters
@@ -27,9 +27,9 @@ def get_args_parser():
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -37,6 +37,7 @@ def get_args_parser():
     parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
     parser.add_argument('--num_classes', default=200, type=int)
     parser.add_argument('--num_groups', default=20, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_group', default=1, type=int)
@@ -140,7 +141,7 @@ def main(args):
             "accuracy": test_acc,
             "loss": test_loss
         }
-    df.to_csv(f"{args.log_dir}/{args.model}_baseline_group_eval.csv")
+    df.to_csv(f"{args.log_dir}/{'unb_' if args.unbalanced else ''}{args.dataset}_{args.model}_baseline_group_eval.csv")
 
 if __name__ == "__main__":
     args = get_args_parser()
