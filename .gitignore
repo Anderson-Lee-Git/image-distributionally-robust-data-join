@@ -173,3 +173,9 @@ src/experiements/sweep_config/*
 
 # npy
 *.npy
+
+*.safetensors
+
+
+*.err
+*.log
