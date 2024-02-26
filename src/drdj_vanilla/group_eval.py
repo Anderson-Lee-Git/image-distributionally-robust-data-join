@@ -20,19 +20,20 @@ from utils.logs import log_stats
 from dataset.datasets import build_dataset, GroupCollateFnClass
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
+    parser = argparse.ArgumentParser('DRDJ group evaluation', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # Model parameters
     parser.add_argument('--model', default='resnet50', type=str)
     parser.add_argument('--pretrained_path', default=None, type=str)
     parser.add_argument('--embed_dim', default=2048, type=int)
+    parser.add_argument('--aux_embed_dim', default=32, type=int)
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
@@ -40,6 +41,7 @@ def get_args_parser():
     parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
     parser.add_argument('--num_classes', default=200, type=int)
     parser.add_argument('--num_groups', default=20, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_group', default=1, type=int)
@@ -76,6 +78,7 @@ def main(args):
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
+    dataset_validation = build_dataset(split='val', args=args)
     dataset_test = build_dataset(split='test', args=args)
     print(dataset_test)
     # set up log writer
@@ -92,6 +95,7 @@ def main(args):
                         backbone=args.model,
                         num_classes=args.num_classes,
                         embed_dim=args.embed_dim,
+                        aux_embed_dim=args.aux_embed_dim,
                         objective="P",
                         args=args)
     # load model
@@ -99,8 +103,8 @@ def main(args):
     print(f"Total evaluate images: {len(dataset_test)}")
     # load model from ckpt
     state_dict = torch.load(args.evaluate_ckpt, map_location=device)
-    print(f"Evaluate model with objective = {state_dict['objective']}")
-    model.load_state_dict(state_dict["model"])
+    # print(f"Evaluate model with objective = {state_dict['objective']}")
+    model.load_state_dict(state_dict[f"model_P"])
 
     # dataframe to store
     df = pd.DataFrame(columns=["group", "accuracy", "loss"])
@@ -109,6 +113,23 @@ def main(args):
     # evaluate the model
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
+    """
+    Validation for sanity check
+    """
+    data_loader_val = DataLoader(dataset_validation,
+                                 batch_size=args.batch_size,
+                                 num_workers=args.num_workers,
+                                 collate_fn=dataset_validation.collate_fn,
+                                 pin_memory=True)
+    val_loss, val_acc = evaluate(model=model,
+                                data_loader=data_loader_val,
+                                criterion=criterion,
+                                device=device,
+                                args=args)
+    log_stats(stats={f"overall val_loss": val_loss, f"overall val_acc": val_acc},
+            epoch=None,
+            log_writer=log_writer,
+            args=args)
     # total eval
     data_loader_test = DataLoader(dataset_test,
                                  batch_size=args.batch_size,
@@ -156,7 +177,7 @@ def main(args):
             "accuracy": test_acc,
             "loss": test_loss
         }
-    df.to_csv(f"{args.log_dir}/{args.model}_drdj_vanilla_group_eval.csv")
+    df.to_csv(f"{args.log_dir}/{'unb_' if args.unbalanced else ''}{args.dataset}_{args.model}_drdj_vanilla_group_eval.csv")
 
 if __name__ == "__main__":
     args = get_args_parser()

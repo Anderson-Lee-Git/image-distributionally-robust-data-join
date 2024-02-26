@@ -6,6 +6,7 @@ from .cifar_100 import CIFAR100
 from .cifar_100_pairs import CIFAR100Pairs
 from .cifar_100_c import CIFAR100_C
 from .mix_cifar_100 import MixCIFAR100
+from .celebA import CelebA
 
 def get_mean_std(args):
     if "cifar100" in args.dataset:
@@ -65,7 +66,7 @@ def collate_fn(batched_samples):
     return batch
 
 class GroupCollateFnClass:
-    group = 0
+    group = None
 
     @staticmethod
     def group_filter_collate_fn(batched_samples):
@@ -76,9 +77,9 @@ class GroupCollateFnClass:
         batch["aux"] = []
         if "original_image" in batched_samples[0]:
             batch["original_image"] = []
-        group = torch.tensor(GroupCollateFnClass.group)
         for sample in batched_samples:
-            if sample["aux"] == group:
+            if sample["aux"] == GroupCollateFnClass.group[0] and \
+                sample["label"] == GroupCollateFnClass.group[1]:
                 batch["image"].append(sample["image"])
                 batch["label"].append(sample["label"])
                 batch["aux"].append(sample["aux"])
@@ -98,7 +99,8 @@ def build_dataset(args, split="train", include_path=False):
             dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100_pairs":
             dataset = CIFAR100Pairs(transform=simple_transform(args),
-                                subset=args.data_subset)
+                                    subset=args.data_subset,
+                                    unbalanced=args.unbalanced)
             dataset.collate_fn = CIFAR100Pairs.collate_fn
         else:
             raise NotImplementedError(f"{args.dataset} not supported")
@@ -125,9 +127,19 @@ def build_dataset(args, split="train", include_path=False):
                             include_path=include_path)
             dataset.collate_fn = collate_fn
         elif args.dataset == "cifar100_c":
-            dataset = CIFAR100_C(corruption=args.corruption,
-                              severity=args.severity)
+            dataset = CIFAR100_C(transform=minimum_transform(args),
+                                corruption=args.corruption,
+                                severity=args.severity)
             dataset.collate_fn = collate_fn
+        elif args.dataset == "celebA":
+            dataset = CelebA(train_transform=minimum_transform(args),
+                             val_transform=minimum_transform(args),
+                             minimum_transform=minimum_transform(args),
+                             split=split,
+                             subset=args.data_subset if split == 'train' else 1.0,
+                             group=args.data_group,
+                             unbalanced=args.unbalanced,
+                             include_path=include_path)
         else:
             raise NotImplementedError(f"{args.dataset} not supported")
         return dataset

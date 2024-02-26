@@ -8,9 +8,10 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
 class CIFAR100Pairs(Dataset):
-    def __init__(self, transform=None, subset=1.0) -> None:
+    def __init__(self, transform=None, subset=1.0, unbalanced=False) -> None:
         super().__init__()
         self.transform = transform
+        self.unbalanced = unbalanced
         self.path = self._get_path()
         self.md = self._get_md()
         self.subset = subset
@@ -38,14 +39,17 @@ class CIFAR100Pairs(Dataset):
         return sample
     
     def get_len_per_group(self):
-        md = pd.read_csv(config("CIFAR100_TRAIN_META_PATH"))
+        md = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_TRAIN_META_PATH")))
         return len(md.loc[md["group"] == 1]), len(md.loc[md["group"] == 2])
     
     def _get_md(self):
-        return pd.read_csv(config("CIFAR100_PAIRS_META_PATH"))
+        if self.unbalanced:
+            return pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_PAIRS_UNBALANCED_META_PATH")))
+        else:
+            return pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_PAIRS_META_PATH")))
 
     def _get_path(self):
-        return config("CIFAR100_TRAIN_PATH")
+        return os.path.join(config("DATASET_ROOT"), config("CIFAR100_TRAIN_PATH"))
 
     @staticmethod
     def collate_fn(batched_samples):

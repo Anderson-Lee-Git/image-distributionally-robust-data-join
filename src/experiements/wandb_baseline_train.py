@@ -67,7 +67,7 @@ sweep_configuration = {
         "data_subset": {"values": [1.0]},
         "data_group": {"values": [1]},
         "weight_decay": {"values": [0.0004, 0.0003, 0.0002]},
-        "exp_lr_gamma": {"values": [0.999, 0.998, 0.997]},
+        "exp_lr_gamma": {"values": [0.999, 0.998, 0.997, 0.996]},
         "model": {"values": [model]}
     },
     "command": base_flags

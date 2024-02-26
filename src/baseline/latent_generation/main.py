@@ -2,6 +2,7 @@ import argparse
 from pathlib import Path
 import os
 import sys
+import pickle
 
 import wandb
 import numpy as np
@@ -17,12 +18,7 @@ sys.path.insert(0, config("REPO_ROOT"))
 
 from dataset.datasets import build_dataset
 from models import build_resnet
-
-def get_latent_path(args):
-    if args.unbalanced:
-        return config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
-    else:
-        return config("CIFAR100_TRAIN_LATENT_PATH")
+from engine import generate
 
 def get_args_parser():
     parser = argparse.ArgumentParser('Baseline inference', add_help=False)
@@ -47,23 +43,33 @@ def get_args_parser():
     parser.add_argument('--dataset', default="cifar100", type=str, help='dataset option')
     parser.add_argument('--data_group', default=0, type=int)
     parser.add_argument('--unbalanced', action='store_true', default=False)
+    parser.add_argument('--num_classes', default=None, type=int)
 
-    parser.add_argument('--start_epoch', default=0, type=int, metavar='N',
-                        help='start epoch')
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_subset', default=1.0, type=float,
                         help='subset of data to use')
-    # misc
-    parser.add_argument('--use_wandb', action='store_true', default=False)
-    parser.add_argument('--project_name', default='', type=str,
-                        help='wandb project name')
     
     # evaluation
     parser.add_argument('--ckpt', default='', type=str,
                         help="checkpoint path of model to evaluate")
     return parser
 
-@torch.no_grad()
+def get_latent_path(args):
+    path = None
+    if args.dataset == "cifar100":
+        if args.unbalanced:
+            path = config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
+        else:
+            path = config("CIFAR100_TRAIN_LATENT_PATH")
+    elif args.dataset == "celebA":
+        if args.unbalanced:
+            path = config("CELEB_A_TRAIN_UNBALANCED_LATENT_PATH")
+        else:
+            path = config("CELEB_A_TRAIN_LATENT_PATH")
+    else:
+        raise NotImplementedError()
+    return os.path.join(config("DATASET_ROOT"), path)
+
 def main(args):
     device = torch.device(args.device)
     # fix seed for reproducibility
@@ -71,14 +77,13 @@ def main(args):
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    args.dataset = "cifar100"
     dataset_train = build_dataset(args=args, split="train", include_path=True)
     dataloader = DataLoader(dataset=dataset_train,
                             batch_size=args.batch_size,
                             num_workers=args.num_workers,
                             pin_memory=True)
     # load model from ckpt
-    model = build_resnet(num_classes=100, pretrained=True, args=args)
+    model = build_resnet(num_classes=args.num_classes, pretrained=True, args=args)
     if args.ckpt != '':
         state_dict = torch.load(args.ckpt)
         model.load_state_dict(state_dict["model"])
@@ -87,26 +92,10 @@ def main(args):
     model.fc = nn.Identity()
     model.to(device)
 
-    latent_dir = get_latent_path(args)
-
-    print(f"output latent directory: {latent_dir}")
-    for samples in tqdm(dataloader):
-        dst_dirs = []
-        original_images = samples["original_image"]
-        labels = samples["label"]
-        paths = samples["path"]
-        for i, path in enumerate(paths):
-            image_id = path.split("/")[-1].split(".")[0] + ".npy"
-            class_path = os.path.join(latent_dir, str(labels[i].item()))
-            if not os.path.exists(class_path):
-                os.mkdir(class_path)
-            dst_dir = os.path.join(class_path, image_id)
-            dst_dirs.append(dst_dir)
-        original_images = original_images.to(device)
-        latents = model(original_images)
-        latents = latents.cpu().numpy()
-        for i, dst_dir in enumerate(dst_dirs):
-            np.save(dst_dir, latents[i])
+    output_path = get_latent_path(args)
+    generate(dataloader=dataloader,
+             model=model,
+             output_path=output_path)
 
 if __name__ == "__main__":
     args = get_args_parser()

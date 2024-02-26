@@ -124,7 +124,7 @@ class DRDJVanilla(nn.Module):
     def _penalty(self):
         penalty_1 = self.lambda_1 * torch.relu(torch.linalg.matrix_norm(self.fc[0].weight[:, :self.embed_dim]) - \
                                      (self.alpha_a + self.alpha_p))
-        penalty_2 = self.lambda_2 * torch.relu(torch.linalg.vector_norm(self.fc[0].weight[:, -1]) - \
+        penalty_2 = self.lambda_2 * torch.relu(torch.linalg.matrix_norm(self.fc[0].weight[:, -self.aux_embed_dim:]) - \
                                      (self.kappa_a * self.alpha_a))
         if self.objective == "P":
             penalty_3 = self.lambda_3 * torch.relu(self.alpha_p - self.alpha_a)

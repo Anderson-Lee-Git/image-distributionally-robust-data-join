@@ -1,4 +1,5 @@
 import argparse
+from argparse import Namespace
 from pathlib import Path
 import os
 import sys
@@ -17,6 +18,7 @@ sys.path.insert(0, config("REPO_ROOT"))
 from models import DRDJVanilla
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats
+from utils.args_utils import get_wandb_args
 from dataset.datasets import build_dataset
 
 def get_args_parser():
@@ -74,6 +76,7 @@ def get_args_parser():
 
     # misc
     parser.add_argument('--use_wandb', action='store_true', default=False)
+    parser.add_argument('--wandb_cont_sweep', action='store_true', default=False)
     parser.add_argument('--project_name', default='', type=str,
                         help='wandb project name')
     
@@ -120,17 +123,28 @@ def get_model(n_a, n_p, objective, args):
                         args=args)
     return model
 
-def main(args):
-    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
-    print("{}".format(args).replace(', ', ',\n'))
+def main():
+    args = get_args_parser()
+    args = args.parse_args()
+
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+    
     # initilize wandb
     if args.use_wandb:
-        wandb.init(project=args.project_name)
+        run = wandb.init(project=args.project_name)
         args.output_dir = os.path.join(args.output_dir, wandb.run.name)
         args.log_dir = os.path.join(args.log_dir, wandb.run.name)
         if not os.path.exists(os.path.join(args.output_dir, "examples")):
             os.makedirs(os.path.join(args.output_dir, "examples"), exist_ok=True)
         print(f"wandb run name: {wandb.run.name}")
+    
+    if args.wandb_cont_sweep:
+        # override the args parameters with wandb run's configuration
+        args = get_wandb_args(run, args)
+    
+    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
+    print("{}".format(args).replace(', ', ',\n'))
     
     device = torch.device(args.device)
 
@@ -143,6 +157,7 @@ def main(args):
     print("Set up dataset and dataloader")
     dataset_train = build_dataset(args=args, split="train")
     dataset_val = build_dataset(args=args, split="val")
+    print(f"Total number of pairs: {len(dataset_train)}")
     print(dataset_train)
     print(dataset_val)
     sampler_train = torch.utils.data.RandomSampler(dataset_train)
@@ -165,23 +180,36 @@ def main(args):
     n_a, n_p = dataset_train.get_len_per_group()
     # two models for dual objectives
     model_P = get_model(n_a, n_p, objective="P", args=args).to(device)
-    model_A = get_model(n_a, n_p, objective="A", args=args).to(device)
+    # model_A = get_model(n_a, n_p, objective="A", args=args).to(device)
     if args.freeze_params:
         print("Freeze encoder parameters")
         model_P.freeze_params()
-        model_A.freeze_params()
+        # model_A.freeze_params()
     total_params = sum(p.numel() for p in model_P.parameters() if p.requires_grad)
     print(f"Total trainable parameters for model_P: {total_params}")
-    total_params = sum(p.numel() for p in model_A.parameters() if p.requires_grad)
-    print(f"Total trainable parameters for model_A: {total_params}")
+    # total_params = sum(p.numel() for p in model_A.parameters() if p.requires_grad)
+    # print(f"Total trainable parameters for model_A: {total_params}")
     optimizer_P = get_optimizer(model_P, args)
-    optimizer_A = get_optimizer(model_A, args)
+    # optimizer_A = get_optimizer(model_A, args)
     lr_scheduler_P = ExponentialLR(optimizer_P, gamma=args.exp_lr_gamma)
-    lr_scheduler_A = ExponentialLR(optimizer_A, gamma=args.exp_lr_gamma)
+    # lr_scheduler_A = ExponentialLR(optimizer_A, gamma=args.exp_lr_gamma)
+
+    epoch = 0
+    latest_ckpt_path = os.path.join(args.output_dir, f"checkpoint-latest.pth")
+    best_ckpt_path = os.path.join(args.output_dir, f"checkpoint-best.pth")
+    best_val_acc = 0
+    # load resumed jobs
+    if args.use_wandb and wandb.run.resumed:
+        ckpt = torch.load(wandb.restore(latest_ckpt_path))
+        model_P.load_state_dict(ckpt["model_P"])
+        # model_A.load_state_dict(ckpt["model_A"])
+        optimizer_P.load_state_dict(ckpt["optimizer_P"])
+        # optimizer_A.load_state_dict(ckpt["optimizer_A"])
+        epoch = ckpt["epoch"]
     # train loop
-    print(f"Start training for {args.epochs} epochs")
+    print(f"Start training for {args.epochs} epochs from epoch = {epoch}")
     # torch.autograd.detect_anomaly(True)
-    for epoch in range(args.epochs):
+    while epoch < args.epochs:
         print(f"Epoch {epoch+1}")
         train_loss_P, train_acc_P = train_one_epoch(model=model_P, data_loader=data_loader_train,
                                                 optimizer=optimizer_P,
@@ -189,40 +217,44 @@ def main(args):
                                                 include_max_term=True,
                                                 include_norm=True,
                                                 args=args)
-        train_loss_A, train_acc_A = train_one_epoch(model=model_A, data_loader=data_loader_train,
-                                                optimizer=optimizer_A,
-                                                device=device,
-                                                include_max_term=True,
-                                                include_norm=True,
-                                                args=args)
+        # train_loss_A, train_acc_A = train_one_epoch(model=model_A, data_loader=data_loader_train,
+        #                                         optimizer=optimizer_A,
+        #                                         device=device,
+        #                                         include_max_term=True,
+        #                                         include_norm=True,
+        #                                         args=args)
         val_loss_P, val_acc_P = evaluate(model=model_P, data_loader=data_loader_val,
                                         criterion=torch.nn.CrossEntropyLoss(),
                                         device=device,
                                         args=args)
-        val_loss_A, val_acc_A = evaluate(model=model_A, data_loader=data_loader_val,
-                                        criterion=torch.nn.CrossEntropyLoss(),
-                                        device=device,
-                                        args=args)
+        # val_loss_A, val_acc_A = evaluate(model=model_A, data_loader=data_loader_val,
+        #                                 criterion=torch.nn.CrossEntropyLoss(),
+        #                                 device=device,
+        #                                 args=args)
 
         # save model
-        if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
-            if val_acc_P > val_acc_A:
-                model = model_P
-                optimizer = optimizer_P
-                objective = "P"
-            else:
-                model = model_A
-                optimizer = optimizer_A
-                objective = "A"
-            to_save = {
-                'model': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
-                'epoch': epoch,
-                'args': args,
-                'objective': objective
-            }
+        # TODO: Change to save on some epochs
+        # if val_acc_P > val_acc_A:
+        #     objective = "P"
+        # else:
+        #     objective = "A"
+        to_save = {
+            'model_P': model_P.state_dict(),
+            'optimizer_P': optimizer_P.state_dict(),
+            # 'model_A': model_A.state_dict(),
+            # 'optimizer_A': optimizer_A.state_dict(),
+            'epoch': epoch,
+            'args': args,
+            # 'objective': objective
+        }
+        if args.output_dir and (epoch % 3 == 0 or epoch + 1 == args.epochs):
             path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
             torch.save(to_save, path)
+        # save latest
+        torch.save(to_save, latest_ckpt_path)
+        # save best
+        if val_acc_P > best_val_acc:
+            torch.save(to_save, best_ckpt_path)
         # log stats
         log_stats(stats={"train_loss (P)": train_loss_P,
                          "train_acc (P)": train_acc_P,
@@ -236,18 +268,18 @@ def main(args):
                   epoch=epoch,
                   args=args,
                   commit=False)
-        log_stats(stats={"train_loss (A)": train_loss_A,
-                         "train_acc (A)": train_acc_A,
-                         "val_loss (A)": val_loss_A,
-                         "val_acc (A)": val_acc_A,
-                         "alpha_a (A)": model_A.alpha_a.item(),
-                         "alpha_p (A)": model_A.alpha_p.item(),
-                         "lr (A)": lr_scheduler_A.get_last_lr()[0],
-                         "alpha_lr (A)": lr_scheduler_A.get_last_lr()[2]},
-                  log_writer=log_writer,
-                  epoch=epoch,
-                  args=args,
-                  commit=False)
+        # log_stats(stats={"train_loss (A)": train_loss_A,
+        #                  "train_acc (A)": train_acc_A,
+        #                  "val_loss (A)": val_loss_A,
+        #                  "val_acc (A)": val_acc_A,
+        #                  "alpha_a (A)": model_A.alpha_a.item(),
+        #                  "alpha_p (A)": model_A.alpha_p.item(),
+        #                  "lr (A)": lr_scheduler_A.get_last_lr()[0],
+        #                  "alpha_lr (A)": lr_scheduler_A.get_last_lr()[2]},
+        #           log_writer=log_writer,
+        #           epoch=epoch,
+        #           args=args,
+        #           commit=False)
         log_stats(stats={"epoch": epoch},
                   log_writer=log_writer,
                   epoch=epoch,
@@ -255,13 +287,42 @@ def main(args):
                   commit=True)
 
         lr_scheduler_P.step()
-        lr_scheduler_A.step()
+        # lr_scheduler_A.step()
+
+        epoch += 1
+    
+    if args.use_wandb:
+        wandb.finish()
 
 if __name__ == "__main__":
     args = get_args_parser()
     args = args.parse_args()
+
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    main(args)
-    if args.use_wandb:
-        wandb.finish()
+    
+    if args.wandb_cont_sweep:
+        sweep_configuration = {
+            "method": "random",
+            "metric": {"goal": "maximize", "name": "val_acc (P)"},
+            "parameters":
+            {
+                "lr": {"max": 1e-4, "min": 1e-5},
+                "alpha_lr": {"max": 1e-4, "min": 1e-5},
+                "cls_lr": {"max": 1e-3, "min": 1e-5},
+                "aux_lr": {"max": 5e-3, "min": 1e-5},
+                "r_a": {"max": 5.0, "min": 1.0},
+                "r_p": {"max": 5.0, "min": 1.0},
+                "lambda_1": {"values": [1.5]},
+                "lambda_2": {"values": [1.5]},
+                "lambda_3": {"values": [8.0]},
+                "kappa_a": {"max": 5.0, "min": 1.0},
+                "kappa_p": {"max": 5.0, "min": 1.0},
+                "weight_decay": {"max": 3e-4, "min": 1e-5},
+                "exp_lr_gamma": {"values": [0.98]}
+            }
+        }
+        sweep_id = wandb.sweep(sweep=sweep_configuration, project=args.project_name)
+        wandb.agent(sweep_id, function=main, count=10)
+    else:
+        main()

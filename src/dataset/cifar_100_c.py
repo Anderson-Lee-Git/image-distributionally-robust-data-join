@@ -2,6 +2,7 @@ import os
 
 import PIL
 from torch.utils.data import Dataset
+import torch
 import pandas as pd
 from torchvision import transforms
 import numpy as np
@@ -9,25 +10,23 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
 class CIFAR100_C(Dataset):
-    def __init__(self, corruption: str, severity: int) -> None:
+    def __init__(self, transform, corruption: str, severity: int) -> None:
         super().__init__()
         self.path = self._get_path()
         self.images, self.labels = self._get_data(corruption, severity)
-        self.transform = self.minimum_transform()
+        self.transform = transform
     
     def __len__(self):
         return self.images.shape[0]
     
     def __getitem__(self, index):
-        image = self.images[index]
-        label = self.labels[index]
-        return self.transform(image), label
-    
-    def minimum_transform(self):
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5071, 0.4867, 0.4408], std=[0.2675, 0.2565, 0.2761])])
-        return transform
+        image = self.transform(self.images[index])
+        label = torch.tensor(self.labels[index])
+        sample = {
+            "image": image,
+            "label": label
+        }
+        return sample
     
     def _get_data(self, corruption, severity=1):
         if corruption not in self._get_supported_corruptions() and \
@@ -57,7 +56,7 @@ class CIFAR100_C(Dataset):
             return total_data, total_labels
     
     def _get_path(self):
-        return config("CIFAR100_C_PATH")
+        return os.path.join(config("DATASET_ROOT"), config("CIFAR100_C_PATH"))
     
     def _get_supported_corruptions(self):
         return [

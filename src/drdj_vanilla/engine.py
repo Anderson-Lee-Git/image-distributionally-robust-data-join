@@ -53,7 +53,10 @@ def evaluate(model: DRDJVanilla, data_loader: torch.utils.data.DataLoader,
                 continue
             images = sample["image"].to(device, non_blocking=True)
             labels = sample["label"].to(device, non_blocking=True)
-            auxs = sample["aux"].to(device, non_blocking=True)
+            if "aux" in sample:
+                auxs = sample["aux"].to(device, non_blocking=True)
+            else:
+                auxs = None
             output = model.forward_eval(images, auxs)
             batch_loss = criterion(output, labels)
             loss += batch_loss.item()

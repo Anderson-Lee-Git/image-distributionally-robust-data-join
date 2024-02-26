@@ -17,6 +17,7 @@ sys.path.insert(0, config("REPO_ROOT"))
 from models import build_resnet
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats, count_parameters
+from utils.args_utils import get_wandb_args
 from dataset.datasets import build_dataset
 
 def get_args_parser():
@@ -60,6 +61,7 @@ def get_args_parser():
 
     # misc
     parser.add_argument('--use_wandb', action='store_true', default=False)
+    parser.add_argument('--wandb_cont_sweep', action='store_true', default=False)
     parser.add_argument('--project_name', default='', type=str,
                         help='wandb project name')
     
@@ -69,14 +71,23 @@ def get_args_parser():
                         help="checkpoint path of model to evaluate")
     return parser
 
-def main(args):
-    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
-    print("{}".format(args).replace(', ', ',\n'))
+def main():
+    args = get_args_parser()
+    args = args.parse_args()
+
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+
     # initilize wandb
     if args.use_wandb:
-        wandb.init(project=args.project_name)
+        run = wandb.init(project=args.project_name)
         args.output_dir = os.path.join(args.output_dir, wandb.run.name)
         args.log_dir = os.path.join(args.log_dir, wandb.run.name)
+
+    args = get_wandb_args(run, args)
+    print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
+    print("{}".format(args).replace(', ', ',\n'))
+
     device = torch.device(args.device)
 
     # fix seed for reproducibility
@@ -113,6 +124,8 @@ def main(args):
     print(f"Number of params: {count_parameters(model)}")
     # train loop
     print(f"Start training for {args.epochs} epochs")
+
+    best_acc = 0
     for epoch in range(args.epochs):
         print(f"Epoch {epoch+1}")
         train_loss, train_acc = train_one_epoch(model=model, data_loader=data_loader_train,
@@ -121,9 +134,9 @@ def main(args):
                                                 device=device,
                                                 args=args)
         val_loss, val_acc = evaluate(model=model, data_loader=data_loader_val,
-                            criterion=criterion,
-                            device=device,
-                            args=args)
+                                     criterion=criterion,
+                                     device=device,
+                                     args=args)
         # save model
         if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
             to_save = {
@@ -133,6 +146,15 @@ def main(args):
                 'args': args
             }
             path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
+            torch.save(to_save, path)
+        if val_acc > best_acc:
+            to_save = {
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'epoch': epoch,
+                'args': args
+            }
+            path = os.path.join(args.output_dir, f"checkpoint-best.pth")
             torch.save(to_save, path)
         # log stats
         log_stats(stats={"train_loss": train_loss,
@@ -149,8 +171,22 @@ def main(args):
 if __name__ == "__main__":
     args = get_args_parser()
     args = args.parse_args()
+
     if args.output_dir:
         Path(args.output_dir).mkdir(parents=True, exist_ok=True)
-    main(args)
-    if args.use_wandb:
-        wandb.finish()
+    
+    if args.wandb_cont_sweep:
+        sweep_configuration = {
+            "method": "random",
+            "metric": {"goal": "maximize", "name": "val_acc"},
+            "parameters":
+            {
+                "lr": {"max": 1e-4, "min": 1e-5},
+                "weight_decay": {"values": [0.0004, 0.0003, 0.0002]},
+                "exp_lr_gamma": {"values": [0.999, 0.998, 0.997, 0.996]},
+            }
+        }
+        sweep_id = wandb.sweep(sweep=sweep_configuration, project=args.project_name)
+        wandb.agent(sweep_id, function=main, count=5)
+    else:
+        main()
