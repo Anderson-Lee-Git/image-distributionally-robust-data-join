@@ -80,13 +80,18 @@ def main():
 
     # initilize wandb
     if args.use_wandb:
-        run = wandb.init(project=args.project_name)
+        run = wandb.init(project=args.project_name, dir=config("REPO_ROOT"))
         args.output_dir = os.path.join(args.output_dir, wandb.run.name)
         args.log_dir = os.path.join(args.log_dir, wandb.run.name)
+        args = get_wandb_args(run, args)
+    
+    if args.output_dir:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
 
-    args = get_wandb_args(run, args)
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
     print("{}".format(args).replace(', ', ',\n'))
+    current_working_directory = os.getcwd()
+    print(f"current directory: {current_working_directory}")
 
     device = torch.device(args.device)
 
@@ -171,9 +176,6 @@ def main():
 if __name__ == "__main__":
     args = get_args_parser()
     args = args.parse_args()
-
-    if args.output_dir:
-        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
     
     if args.wandb_cont_sweep:
         sweep_configuration = {
@@ -182,8 +184,8 @@ if __name__ == "__main__":
             "parameters":
             {
                 "lr": {"max": 1e-4, "min": 1e-5},
-                "weight_decay": {"values": [0.0004, 0.0003, 0.0002]},
-                "exp_lr_gamma": {"values": [0.999, 0.998, 0.997, 0.996]},
+                "weight_decay": {"max": 1e-4, "min": 1e-5},
+                "exp_lr_gamma": {"values": [0.99]},
             }
         }
         sweep_id = wandb.sweep(sweep=sweep_configuration, project=args.project_name)

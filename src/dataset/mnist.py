@@ -8,7 +8,7 @@ import pandas as pd
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 
-class CelebA(Dataset):
+class MNIST(Dataset):
     def __init__(self, train_transform=None,
                  minimum_transform=None,
                  val_transform=None,
@@ -52,24 +52,6 @@ class CelebA(Dataset):
             transform = self.minimum_transform
         return self._get_custom_item(transform, image, label, aux, img_path)
     
-    def _adapt_transforms(self):
-        """
-        Add center crop by the width=178 of celebA because
-        celebA comes in shape: (178, 218)
-        """
-        self.train_transform = transforms.Compose([
-            transforms.CenterCrop(178),
-            self.train_transform
-        ])
-        self.val_transform = transforms.Compose([
-            transforms.CenterCrop(178),
-            self.val_transform
-        ])
-        self.minimum_transform = transforms.Compose([
-            transforms.CenterCrop(178),
-            self.minimum_transform
-        ])
-    
     def _get_custom_item(self, transform, image, label, aux, img_path):
         if transform:
             transformed_image = transform(image)
@@ -87,22 +69,4 @@ class CelebA(Dataset):
         return sample
     
     def _get_path(self):
-        return os.path.join(config("DATASET_ROOT"), config("CELEB_A_PATH"))
-    
-    def _get_md(self):
-        if self.split == 'train':
-            if self.unbalanced:
-                assert os.path.exists(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_UNBALANCED_META_PATH")))
-                df = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_UNBALANCED_META_PATH")))
-            else:
-                df = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_META_PATH")))
-            if self.group != 0:
-                md = df.loc[df["group"] == self.group]
-            else:
-                md = df
-        elif self.split == 'val':
-            md = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_VAL_META_PATH")))
-        else:
-            md = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TEST_META_PATH")))
-        assert len(md) > 0
-        return md
+        return os.path.join(config("DATASET_ROOT"), config("MNIST_ROOT"))

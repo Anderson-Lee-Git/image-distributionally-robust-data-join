@@ -19,6 +19,8 @@ sys.path.insert(0, config("REPO_ROOT"))
 from dataset import CIFAR100, collate_fn
 
 def get_latent_path(args):
+    if args.dry:
+        return os.path.join(config("DATASET_ROOT"), f"cifar100_mae_latents.pickle")
     if args.unbalanced:
         return os.path.join(config("DATASET_ROOT"), config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH"))
     else:
@@ -39,16 +41,16 @@ def get_args_parser():
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--generate', action='store_true', default=False)
     parser.add_argument('--pretrained_path', default=None, type=str)
+    parser.add_argument('--dry', action='store_true', default=True)
     return parser
 
 @torch.no_grad()
 def generate(dataloader: DataLoader,
              model: ViTMAEModel,
              image_processor):
-    latent_dir = get_latent_path(args)
-    print(f"output latent directory: {latent_dir}")
+    output_path = get_latent_path(args)
+    print(f"output latent directory: {output_path}")
     latents = {}
-    output_path = os.path.join(latent_dir, "mae_latents.pickle")
     f = open(output_path, "wb")
     for samples in tqdm(dataloader):
         original_images = samples["original_image"]

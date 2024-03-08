@@ -94,29 +94,30 @@ def main(args):
     model.load_state_dict(state_dict["model"])
 
     # dataframe to store
-    df = pd.DataFrame(columns=["group", "accuracy", "loss"])
+    df = pd.DataFrame(columns=["type", "group", "accuracy", "loss"])
     # groups
     groups = np.transpose([np.tile(range(args.num_groups), args.num_classes),
                            np.repeat(range(args.num_classes), args.num_groups)])
     # evaluate the model
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
-    # test_loss, test_acc = evaluate(model=model, 
-    #                                data_loader=data_loader_test,
-    #                                criterion=criterion,
-    #                                device=device,
-    #                                args=args)
-    # # log stats
-    # log_stats(stats={"overall test_loss": test_loss, "overall test_acc": test_acc},
-    #          epoch=None,
-    #          log_writer=log_writer,
-    #          args=args)
-    # # store in dataframe
-    # df.loc[len(df)] = {
-    #     "group": -1,
-    #     "accuracy": test_acc,
-    #     "loss": test_loss
-    # }
+    test_loss, test_acc = evaluate(model=model, 
+                                   data_loader=data_loader_test,
+                                   criterion=criterion,
+                                   device=device,
+                                   args=args)
+    # log stats
+    log_stats(stats={"overall test_loss": test_loss, "overall test_acc": test_acc},
+             epoch=None,
+             log_writer=log_writer,
+             args=args)
+    # store in dataframe
+    df.loc[len(df)] = {
+        "type": "test",
+        "group": None,
+        "accuracy": test_acc,
+        "loss": test_loss
+    }
     # group eval
     for group in groups:
         GroupCollateFnClass.group = (torch.tensor(group[0]), torch.tensor(group[1]))
@@ -138,6 +139,7 @@ def main(args):
                 args=args)
         # store in dataframe
         df.loc[len(df)] = {
+            "type": "group",
             "group": group,
             "accuracy": test_acc,
             "loss": test_loss

@@ -21,4 +21,4 @@ export PATH=$PATH:$HOME/miniconda3/bin
 
 echo "---------start-----------"
 
-python /gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/mae/cifar100.py --batch_size 256
+python /gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/mae/cifar100.py --batch_size 256 --generate --dry --pretrained_path /gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/mae/checkpoints/mae_ft_cifar100_trial_1

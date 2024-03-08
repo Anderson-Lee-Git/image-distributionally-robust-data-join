@@ -1,5 +1,7 @@
+import os
 import torch
 from torchvision.transforms import transforms
+from torchvision.datasets import MNIST
 from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
 from .cifar_100 import CIFAR100
@@ -7,6 +9,9 @@ from .cifar_100_pairs import CIFAR100Pairs
 from .cifar_100_c import CIFAR100_C
 from .mix_cifar_100 import MixCIFAR100
 from .celebA import CelebA
+from .celebA_pairs import CelebAPairs
+from decouple import Config, RepositoryEnv
+config = Config(RepositoryEnv(".env"))
 
 def get_mean_std(args):
     if "cifar100" in args.dataset:
@@ -50,6 +55,13 @@ def minimum_transform(args):
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std)])
     return transform_train
+
+def mnist_transform():
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize((0.1307,), (0.3081,))
+    ])
+    return transform
 
 def collate_fn(batched_samples):
     assert len(batched_samples) > 0
@@ -102,6 +114,11 @@ def build_dataset(args, split="train", include_path=False):
                                     subset=args.data_subset,
                                     unbalanced=args.unbalanced)
             dataset.collate_fn = CIFAR100Pairs.collate_fn
+        elif args.dataset == "celebA_pairs":
+            dataset = CelebAPairs(transform=simple_transform(args),
+                                  subset=args.data_subset,
+                                  unbalanced=args.unbalanced)
+            dataset.collate_fn = CelebAPairs.collate_fn
         else:
             raise NotImplementedError(f"{args.dataset} not supported")
         return dataset
@@ -131,7 +148,8 @@ def build_dataset(args, split="train", include_path=False):
                                 corruption=args.corruption,
                                 severity=args.severity)
             dataset.collate_fn = collate_fn
-        elif args.dataset == "celebA":
+        elif args.dataset == "celebA" or \
+            args.dataset == "celebA_pairs":
             dataset = CelebA(train_transform=minimum_transform(args),
                              val_transform=minimum_transform(args),
                              minimum_transform=minimum_transform(args),
@@ -140,6 +158,12 @@ def build_dataset(args, split="train", include_path=False):
                              group=args.data_group,
                              unbalanced=args.unbalanced,
                              include_path=include_path)
+            dataset.collate_fn = collate_fn
+        elif args.dataset == "mnist":
+            dataset = MNIST(root=os.path.join(config("DATASET_ROOT"), config("MNIST_ROOT")),
+                            train=split=="train",
+                            transform=mnist_transform(),
+                            download=True)
         else:
             raise NotImplementedError(f"{args.dataset} not supported")
         return dataset

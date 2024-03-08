@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-#SBATCH --job-name=mae-pairs
+#SBATCH --job-name=kNN
 #SBATCH --account=jamiemmt
 #SBATCH --partition=gpu-a100
 #
@@ -21,4 +21,4 @@ export PATH=$PATH:$HOME/miniconda3/bin
 
 echo "---------start-----------"
 
-python /gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/generate_pairs/nearest_neighbor.py --dataset cifar100 --dim=83200 --k=2
+python /gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/generate_pairs/nearest_neighbor.py --dataset celebA --unbalanced --dim=2048 --k=1

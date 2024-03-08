@@ -5,6 +5,7 @@ from torch.utils.data import Dataset
 import torch
 import pandas as pd
 from torchvision import transforms
+import json
 import numpy as np
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
@@ -14,7 +15,9 @@ class CIFAR100_C(Dataset):
         super().__init__()
         self.path = self._get_path()
         self.images, self.labels = self._get_data(corruption, severity)
+        self.aux_map = json.load(open(os.path.join(config("DATASET_ROOT"), config("CIFAR100_AUX_MAP")), "r"))
         self.transform = transform
+        self._adapt_transforms()
     
     def __len__(self):
         return self.images.shape[0]
@@ -22,11 +25,22 @@ class CIFAR100_C(Dataset):
     def __getitem__(self, index):
         image = self.transform(self.images[index])
         label = torch.tensor(self.labels[index])
+        aux = torch.tensor(int(self.aux_map[str(self.labels[index])]))
         sample = {
             "image": image,
-            "label": label
+            "label": label,
+            "aux": aux
         }
         return sample
+
+    def _adapt_transforms(self):
+        """
+        Add to PIL because cifar100_C comes in numpy array type
+        """
+        self.transform = transforms.Compose([
+            transforms.ToPILImage(),
+            self.transform
+        ])
     
     def _get_data(self, corruption, severity=1):
         if corruption not in self._get_supported_corruptions() and \

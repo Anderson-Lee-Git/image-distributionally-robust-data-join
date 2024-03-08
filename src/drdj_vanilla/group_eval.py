@@ -109,7 +109,8 @@ def main(args):
     # dataframe to store
     df = pd.DataFrame(columns=["group", "accuracy", "loss"])
     # groups
-    groups = range(args.num_groups)
+    groups = np.transpose([np.tile(range(args.num_groups), args.num_classes),
+                           np.repeat(range(args.num_classes), args.num_groups)])
     # evaluate the model
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
@@ -148,13 +149,13 @@ def main(args):
             args=args)
     # store in dataframe
     df.loc[len(df)] = {
-        "group": -1,
+        "group": (-1),
         "accuracy": test_acc,
         "loss": test_loss
     }
     # group eval
     for group in groups:
-        GroupCollateFnClass.group = group
+        GroupCollateFnClass.group = (torch.tensor(group[0]), torch.tensor(group[1]))
         dataset_test.collate_fn = GroupCollateFnClass.group_filter_collate_fn
         data_loader_test = DataLoader(dataset_test,
                                  batch_size=args.batch_size,

@@ -4,6 +4,7 @@ import os
 import sys
 
 import wandb
+import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
@@ -16,28 +17,30 @@ sys.path.insert(0, config("REPO_ROOT"))
 from models import DRDJVanilla
 from engine import evaluate
 from utils.logs import log_stats
-from dataset.datasets import build_dataset
+from dataset.datasets import build_dataset, GroupCollateFnClass
 
 def get_args_parser():
-    parser = argparse.ArgumentParser('DRDJ optimization', add_help=False)
+    parser = argparse.ArgumentParser('DRDJ group evaluation', add_help=False)
     parser.add_argument('--batch_size', default=64, type=int,
                         help='Batch size per GPU (effective batch size is batch_size * accum_iter * # gpus')
     # Model parameters
-    parser.add_argument('--model', default='ResNet50', type=str)
+    parser.add_argument('--model', default='resnet50', type=str)
     parser.add_argument('--pretrained_path', default=None, type=str)
     parser.add_argument('--embed_dim', default=2048, type=int)
+    parser.add_argument('--aux_embed_dim', default=32, type=int)
 
     # Dataset parameters
     parser.add_argument('--input_size', type=int, default=64)
-    parser.add_argument('--output_dir', default='./output_dir',
+    parser.add_argument('--output_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to save, empty for no saving')
-    parser.add_argument('--log_dir', default='./output_dir',
+    parser.add_argument('--log_dir', default='/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc',
                         help='path where to tensorboard log')
     parser.add_argument('--device', default='cuda',
                         help='device to use for training / testing')
     parser.add_argument('--seed', default=0, type=int)
     parser.add_argument('--dataset', default='tiny_imagenet', type=str, help='dataset option')
     parser.add_argument('--num_classes', default=200, type=int)
+    parser.add_argument('--unbalanced', action='store_true', default=False)
 
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_group', default=1, type=int)
@@ -76,12 +79,6 @@ def main(args):
     print("Set up dataset and dataloader")
     dataset_test = build_dataset(split='test', args=args)
     print(dataset_test)
-    # sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    data_loader_test = DataLoader(dataset_test,
-                                 batch_size=args.batch_size,
-                                 num_workers=args.num_workers,
-                                 collate_fn=dataset_test.collate_fn,
-                                 pin_memory=True)
     # set up log writer
     if args.log_dir is not None:
         os.makedirs(args.log_dir, exist_ok=True)
@@ -96,6 +93,7 @@ def main(args):
                         backbone=args.model,
                         num_classes=args.num_classes,
                         embed_dim=args.embed_dim,
+                        aux_embed_dim=args.aux_embed_dim,
                         objective="P",
                         args=args)
     # load model
@@ -103,21 +101,27 @@ def main(args):
     print(f"Total evaluate images: {len(dataset_test)}")
     # load model from ckpt
     state_dict = torch.load(args.evaluate_ckpt, map_location=device)
-    print(f"Evaluate model with objective = {state_dict['objective']}")
-    model.load_state_dict(state_dict["model"])
+    # print(f"Evaluate model with objective = {state_dict['objective']}")
+    model.load_state_dict(state_dict[f"model_P"])
     # evaluate the model
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
+    # total eval
+    data_loader_test = DataLoader(dataset_test,
+                                 batch_size=args.batch_size,
+                                 num_workers=args.num_workers,
+                                 collate_fn=dataset_test.collate_fn,
+                                 pin_memory=True)
     test_loss, test_acc = evaluate(model=model,
-                                   data_loader=data_loader_test,
-                                   criterion=criterion,
-                                   device=device,
-                                   args=args)
+                                    data_loader=data_loader_test,
+                                    criterion=criterion,
+                                    device=device,
+                                    args=args)
     # log stats
-    log_stats(stats={"test_loss": test_loss, "test_acc": test_acc},
-             epoch=None,
-             log_writer=log_writer,
-             args=args)
+    log_stats(stats={f"overall test_loss": test_loss, f"overall test_acc": test_acc},
+            epoch=None,
+            log_writer=log_writer,
+            args=args)
 
 if __name__ == "__main__":
     args = get_args_parser()
