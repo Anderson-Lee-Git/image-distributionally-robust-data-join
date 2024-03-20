@@ -53,6 +53,40 @@ def get_args_parser():
                         help="checkpoint path of model to evaluate")
     return parser
 
+def sub_population_eval(model,
+                        dataset_test,
+                        criterion,
+                        device,
+                        log_writer):
+    # (0.9, 0.1), (0.8, 0.2), ..., (0.1, 0.9)
+    df = pd.DataFrame(columns=["loss", "accuracy", "r1", "r2"])
+    ratios = [(0.1 * (10-i), 0.1 * i) for i in range(1, 10)]
+    for r1, r2 in ratios:
+        dataset_test.set_test_sub_population(ratio=[r1] * 10 + [r2] * 10)
+        data_loader_test = DataLoader(dataset_test,
+                                    batch_size=args.batch_size,
+                                    num_workers=args.num_workers,
+                                    collate_fn=dataset_test.collate_fn,
+                                    pin_memory=True)
+        test_loss, test_acc = evaluate(model=model,
+                                        data_loader=data_loader_test,
+                                        criterion=criterion,
+                                        device=device,
+                                        args=args)
+        # log stats
+        log_stats(stats={f"test_loss ({r1:.2f}, {r2:.2f})": test_loss, f"test_acc ({r1:.2f}, {r2:.2f})": test_acc},
+                epoch=None,
+                log_writer=log_writer,
+                args=args)
+        dataset_test.reset_test_population()
+        df.loc[len(df)] = {
+            "loss": test_loss,
+            "accuracy": test_acc,
+            "r1": r1,
+            "r2": r2
+        }
+    df.to_csv("/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/misc/unb_cifar100_baseline_subpopulation_eval.csv")
+
 def main(args):
     print('job dir: {}'.format(os.path.dirname(os.path.realpath(__file__))))
     print("{}".format(args).replace(', ', ',\n'))
@@ -94,16 +128,21 @@ def main(args):
     # evaluate the model
     model.to(device)
     criterion = torch.nn.CrossEntropyLoss()
-    test_loss, test_acc = evaluate(model=model, 
-                                   data_loader=data_loader_test,
-                                   criterion=criterion,
-                                   device=device,
-                                   args=args)
-    # log stats
-    log_stats(stats={"overall test_loss": test_loss, "overall test_acc": test_acc},
-             epoch=None,
-             log_writer=log_writer,
-             args=args)
+    sub_population_eval(model=model,
+                        dataset_test=dataset_test,
+                        criterion=criterion,
+                        device=device,
+                        log_writer=log_writer)
+    # test_loss, test_acc = evaluate(model=model, 
+    #                                data_loader=data_loader_test,
+    #                                criterion=criterion,
+    #                                device=device,
+    #                                args=args)
+    # # log stats
+    # log_stats(stats={"overall test_loss": test_loss, "overall test_acc": test_acc},
+    #          epoch=None,
+    #          log_writer=log_writer,
+    #          args=args)
 
 if __name__ == "__main__":
     args = get_args_parser()

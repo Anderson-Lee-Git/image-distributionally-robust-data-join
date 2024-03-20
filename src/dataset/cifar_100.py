@@ -83,3 +83,22 @@ class CIFAR100(Dataset):
             md = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_TEST_META_PATH")))
         assert len(md) > 0
         return md
+    
+    def set_test_sub_population(self, ratio):
+        """
+        :param ratio: a list of 20 numbers between 0 and 1 to determine the number of samples
+        for each superclass
+        """
+        assert self.split == "test"
+        md = pd.DataFrame(columns=self.md.columns)
+        for i in range(len(ratio)):
+            sub_df = self.md.loc[self.md["superclass"] == i].copy()
+            md = pd.concat([md, sub_df.iloc[:int(ratio[i] * len(sub_df))].copy()])
+        md = md.sample(frac=1).reset_index(drop=True)
+        self.total_md = self.md.copy()
+        self.md = md.copy()
+        assert len(self.md) > 0
+    
+    def reset_test_population(self):
+        assert hasattr(self, "total_md")
+        self.md = self.total_md.copy()
