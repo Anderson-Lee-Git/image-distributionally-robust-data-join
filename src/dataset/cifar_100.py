@@ -2,6 +2,7 @@ import os
 
 import PIL
 import torch
+from torch import nn
 from torch.utils.data import Dataset
 import pandas as pd
 from decouple import Config, RepositoryEnv
@@ -32,7 +33,7 @@ class CIFAR100(Dataset):
         row = self.md.iloc[index]
         img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
         label = torch.tensor(row["label"])
-        aux = torch.tensor(row["superclass"])
+        aux = nn.functional.one_hot(torch.tensor(row["superclass"]), num_classes=20)
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
         if self.split == 'train':

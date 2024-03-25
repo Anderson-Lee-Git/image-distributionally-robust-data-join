@@ -33,11 +33,6 @@ class DRDJVanilla(nn.Module):
         self.aux_embed_dim = aux_embed_dim
         self.args = args
         self.encoder = self._build_backbone()
-        self.aux_encoder = nn.Sequential(
-            nn.Linear(1, 16),
-            nn.ReLU(),
-            nn.Linear(16, self.aux_embed_dim)
-        )
         self.objective = objective
         # parameters
         self.alpha_a = nn.Parameter(torch.tensor([1.0]))
@@ -74,17 +69,16 @@ class DRDJVanilla(nn.Module):
     def forward_eval(self, x, aux):
         B = x.shape[0]
         if aux is None:
-            aux = torch.zeros(B, 1).to(torch.float32).cuda()
+            aux_embed = torch.zeros(B, self.aux_embed_dim).to(torch.float32).cuda()
         else:
-            aux = aux.view(B, 1).to(torch.float32).cuda()
+            aux_embed = aux.view(B, self.aux_embed_dim).to(torch.float32).cuda()
         embed = self.encoder(x)
-        aux_embed = self.aux_encoder(aux)
         embed = torch.concat([embed, aux_embed], dim=1)
         return self.fc(embed)
     
     def forward_loss(self, x, x_other, aux, labels, include_max_term=False, include_norm=False):
-        aux = aux.view(-1, 1).to(torch.float32)
-        aux_embed = self.aux_encoder(aux)
+        B = x.shape[0]
+        aux_embed = aux.view(B, self.aux_embed_dim).to(torch.float32)
         embed = self.encoder(x)
         embed_other = self.encoder(x_other)
         if self.objective == "P":

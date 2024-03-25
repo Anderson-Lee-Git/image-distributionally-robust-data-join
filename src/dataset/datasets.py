@@ -1,5 +1,6 @@
 import os
 import torch
+from torch import nn
 from torchvision.transforms import transforms
 from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
@@ -63,7 +64,10 @@ def collate_fn(batched_samples):
     if "original_image" in batched_samples[0]:
         batch["original_image"] = torch.stack([sample["original_image"] for sample in batched_samples], dim=0)
     if "aux" in batched_samples[0]:
-        batch["aux"] = torch.stack([sample["aux"] for sample in batched_samples], dim=0)
+        batch["aux"] = nn.functional.one_hot(
+            torch.stack([sample["aux"] for sample in batched_samples], dim=0),
+            num_classes=20
+        )
     for k in batched_samples[0]:
         if k not in batch:
             batch[k] = [sample[k] for sample in batched_samples]
@@ -93,6 +97,8 @@ class GroupCollateFnClass:
             if len(batch[key]) == 0:
                 return {}
             batch[key] = torch.stack(batch[key], dim=0)
+            if key == "aux":
+                batch[key] = nn.functional.one_hot(batch[key], num_classes=20)
         return batch
 
 def build_dataset(args, split="train", include_path=False):

@@ -3,6 +3,7 @@ import os
 import PIL
 import torch
 from torch.utils.data import Dataset
+from torch import nn
 import pandas as pd
 from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
@@ -58,6 +59,9 @@ class CIFAR100Pairs(Dataset):
         batch["image_1"] = torch.stack([sample["image_1"] for sample in batched_samples], dim=0)
         batch["image_2"] = torch.stack([sample["image_2"] for sample in batched_samples], dim=0)
         batch["label"] = torch.stack([torch.tensor(sample["label"]) for sample in batched_samples], dim=0)
-        batch["aux"] = torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0)
+        batch["aux"] = nn.functional.one_hot(
+            torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0),
+            num_classes=20
+        )
         return batch
     
