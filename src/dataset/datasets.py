@@ -1,7 +1,6 @@
 import os
 import torch
 from torchvision.transforms import transforms
-from torchvision.datasets import MNIST
 from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
 from .cifar_100 import CIFAR100
@@ -55,13 +54,6 @@ def minimum_transform(args):
         transforms.ToTensor(),
         transforms.Normalize(mean=mean, std=std)])
     return transform_train
-
-def mnist_transform():
-    transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize((0.1307,), (0.3081,))
-    ])
-    return transform
 
 def collate_fn(batched_samples):
     assert len(batched_samples) > 0
@@ -159,11 +151,6 @@ def build_dataset(args, split="train", include_path=False):
                              unbalanced=args.unbalanced,
                              include_path=include_path)
             dataset.collate_fn = collate_fn
-        elif args.dataset == "mnist":
-            dataset = MNIST(root=os.path.join(config("DATASET_ROOT"), config("MNIST_ROOT")),
-                            train=split=="train",
-                            transform=mnist_transform(),
-                            download=True)
         else:
             raise NotImplementedError(f"{args.dataset} not supported")
         return dataset
