@@ -103,3 +103,26 @@ class CIFAR100(Dataset):
     def reset_test_population(self):
         assert hasattr(self, "total_md")
         self.md = self.total_md.copy()
+
+class CIFAR100_A(CIFAR100):
+    def __init__(self, **kwargs) -> None:
+        super().__init__(**kwargs)
+    
+    def __getitem__(self, index):
+        """
+        Label of an item is superclass instead of fineclass
+        """
+        row = self.md.iloc[index]
+        img_path = os.path.join(os.path.join(self.path, str(row["label"])), row["id"])
+        label = torch.tensor(row["superclass"])
+        aux = nn.functional.one_hot(torch.tensor(row["superclass"]), num_classes=20)
+        image = PIL.Image.open(img_path)
+        image = image.convert("RGB")
+        if self.split == 'train':
+            transform = self.train_transform
+        elif self.split == "val":
+            transform = self.val_transform
+        else:
+            transform = self.minimum_transform
+        return self._get_custom_item(transform, image, label, aux, img_path)
+

@@ -38,7 +38,7 @@ def get_args_parser():
     parser.add_argument('--model', default='resnet50', type=str)
     parser.add_argument('--pretrained_path', default=None, type=str)
     parser.add_argument('--embed_dim', default=2048, type=int)
-    parser.add_argument('--aux_embed_dim', default=32, type=int)
+    parser.add_argument('--aux_embed_dim', default=20, type=int)
     parser.add_argument('--freeze_params', default=False, type=bool)
 
     # Optimizer parameters
@@ -48,7 +48,6 @@ def get_args_parser():
                         help='learning rate (absolute lr)')
     parser.add_argument('--alpha_lr', type=float, default=None)
     parser.add_argument('--cls_lr', type=float, default=1e-4)
-    parser.add_argument('--aux_lr', type=float, default=1e-4)
     parser.add_argument('--exp_lr_gamma', type=float, default=1.0,
                         help='gamma of exponential lr scheduler')
 
@@ -88,11 +87,6 @@ def get_args_parser():
 
 def get_optimizer(model: DRDJVanilla, args):
     optimizer = torch.optim.Adam(model.encoder.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    optimizer.add_param_group({
-        'params': model.aux_encoder.parameters(),
-        'lr': args.aux_lr,
-        "weight_decay": args.weight_decay
-    })
     optimizer.add_param_group({
         'params': model.fc.parameters(),
         'lr': args.cls_lr,
@@ -210,13 +204,15 @@ def main():
     print(f"Start training for {args.epochs} epochs from epoch = {epoch}")
     # torch.autograd.detect_anomaly(True)
     while epoch < args.epochs:
-        print(f"Epoch {epoch+1}")
-        train_loss_P, train_acc_P = train_one_epoch(model=model_P, data_loader=data_loader_train,
-                                                optimizer=optimizer_P,
-                                                device=device,
-                                                include_max_term=True,
-                                                include_norm=True,
-                                                args=args)
+        epoch += 1
+        print(f"Epoch {epoch}")
+        train_loss_P, train_acc_P = train_one_epoch(model=model_P,  
+                                                    data_loader=data_loader_train,
+                                                    optimizer=optimizer_P,
+                                                    device=device,
+                                                    include_max_term=True,
+                                                    include_norm=True,
+                                                    args=args)
         # train_loss_A, train_acc_A = train_one_epoch(model=model_A, data_loader=data_loader_train,
         #                                         optimizer=optimizer_A,
         #                                         device=device,
@@ -247,7 +243,7 @@ def main():
             'args': args,
             # 'objective': objective
         }
-        if args.output_dir and (epoch % 3 == 0 or epoch + 1 == args.epochs):
+        if args.output_dir and (epoch % 3 == 1 or epoch == args.epochs):
             path = os.path.join(args.output_dir, f"checkpoint-{epoch}.pth")
             torch.save(to_save, path)
         # save latest
@@ -288,8 +284,6 @@ def main():
 
         lr_scheduler_P.step()
         # lr_scheduler_A.step()
-
-        epoch += 1
     
     if args.use_wandb:
         wandb.finish()

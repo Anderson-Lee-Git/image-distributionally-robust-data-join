@@ -1,38 +1,42 @@
-import math
-import os
-
+import wandb
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss, Softmax
-import wandb
 
-import models
-from models.build_baseline import build_resnet
-from utils.init_utils import initialize_weights
-from utils.visualization import visualize_image
-
-supported_backbone = [
-    "resnet34",
-    "resnet50"
-]
-
-class DRDJVanilla(nn.Module):
+class MnistDRDJ(nn.Module):
     def __init__(self, r_a: float, r_p: float,
                  kappa_a: float, kappa_p: float,
                  n_a: int, n_p: int,
                  lambda_1: float, lambda_2: float, lambda_3: float,
-                 backbone: str, num_classes: int,
+                 num_classes: int,
                  embed_dim: int,
                  aux_embed_dim: int,
                  objective: str,
                  args) -> None:
-        super(DRDJVanilla, self).__init__()
-        self.backbone = backbone
+        super(MnistDRDJ, self).__init__()
+        # TODO
+        self.x_encoder = nn.Sequential(
+            nn.Linear(32, 64),
+            # nn.LeakyReLU(),
+            # nn.Linear(64, 128),
+            # nn.LeakyReLU(),
+            # nn.Linear(128, 64),
+            nn.LeakyReLU(),
+            nn.Linear(64, embed_dim)
+        )
+        self.aux_encoder = nn.Sequential(
+            nn.Linear(32, 64),
+            # nn.LeakyReLU(),
+            # nn.Linear(64, 128),
+            # nn.LeakyReLU(),
+            # nn.Linear(128, 64),
+            nn.LeakyReLU(),
+            nn.Linear(64, aux_embed_dim)
+        )
         self.num_classes = num_classes
         self.embed_dim = embed_dim
         self.aux_embed_dim = aux_embed_dim
         self.args = args
-        self.encoder = self._build_backbone()
         self.objective = objective
         # parameters
         self.alpha_a = nn.Parameter(torch.tensor([1.0]))
@@ -44,43 +48,28 @@ class DRDJVanilla(nn.Module):
         # cross entropy loss
         self.loss_fn = CrossEntropyLoss(reduction='none')
         self.softmax = Softmax(dim=1)
-        # store the most recent x and x_other for forward loss
-        self.x = None
-        self.x_other = None
-        self.embed = None
-        self.embed_other = None
-        # TODO: Not compatiable with imagenet pre-trained model
-        self._load_pretrained_backbone()
         # take over classifier layer
         self.fc = nn.Linear(self.embed_dim + self.aux_embed_dim, self.num_classes)
-        self.encoder.fc = nn.Identity()
         # initialize weights
         self._initialize_weight()
 
-    def freeze_params(self):
-        for param in self.encoder.parameters():
-            param.requires_grad = False
-        assert self.fc.weight.requires_grad == True
-    
     def forward_eval(self, x, aux):
         B = x.shape[0]
         if aux is None:
             aux_embed = torch.zeros(B, self.aux_embed_dim).to(torch.float32).cuda()
         else:
-            aux_embed = aux.view(B, self.aux_embed_dim).to(torch.float32).cuda()
-        embed = self.encoder(x)
+            aux_embed = self.aux_encoder(aux)
+        embed = self.x_encoder(x)
         embed = torch.concat([embed, aux_embed], dim=1)
         return self.fc(embed)
     
     def forward_loss(self, x, x_other, aux, labels, dist_weight=None, include_max_term=False, include_norm=False):
         B = x.shape[0]
-        aux_embed = aux.view(B, self.aux_embed_dim).to(torch.float32)
-        embed = self.encoder(x)
-        embed_other = self.encoder(x_other)
+        aux_embed = self.aux_encoder(aux)
+        embed = self.x_encoder(x)
+        embed_other = self.x_encoder(x_other)
         if dist_weight is None:
             dist_weight = torch.ones(B).cuda()
-        # TODO
-        dist_weight = torch.ones(B).cuda()
         if self.objective == "P":
             output = self.fc(torch.concat([embed, aux_embed], dim=1)).cuda()
         else:
@@ -136,25 +125,9 @@ class DRDJVanilla(nn.Module):
         return penalty_1 + penalty_2 + penalty_3
     
     def _initialize_weight(self):
-        # for m in self.modules():
-        #     if isinstance(m, models.resnet.Bottleneck) or \
-        #         isinstance(m, models.resnet.ResNet):
-        #         continue
-        #     else:
-        #         initialize_weights({}, m)
-        initialize_weights({}, self.fc)
-
-    def _build_backbone(self):
-        if self.backbone not in supported_backbone:
-            raise NotImplementedError(f"{self.backbone} not supported")
-        else:
-            model = build_resnet(num_classes=self.num_classes, pretrained=True,
-                                 args=self.args)
-            return model
-            
-    def _load_pretrained_backbone(self):
-        # load pretrained model
-        if self.args.pretrained_path:
-            print(f"Load backbone from {self.args.pretrained_path}")
-            state_dict = torch.load(self.args.pretrained_path, "cuda")
-            self.encoder.load_state_dict(state_dict["model"])
+        for m in self.x_encoder.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)
+        for m in self.aux_encoder.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight)

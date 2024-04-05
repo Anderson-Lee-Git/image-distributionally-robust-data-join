@@ -4,7 +4,7 @@ from torch import nn
 from torchvision.transforms import transforms
 from .tiny_imagenet_pairs import TinyImagenetPairs
 from .tiny_imagenet import TinyImagenet
-from .cifar_100 import CIFAR100
+from .cifar_100 import CIFAR100, CIFAR100_A
 from .cifar_100_pairs import CIFAR100Pairs
 from .cifar_100_c import CIFAR100_C
 from .mix_cifar_100 import MixCIFAR100
@@ -64,10 +64,7 @@ def collate_fn(batched_samples):
     if "original_image" in batched_samples[0]:
         batch["original_image"] = torch.stack([sample["original_image"] for sample in batched_samples], dim=0)
     if "aux" in batched_samples[0]:
-        batch["aux"] = nn.functional.one_hot(
-            torch.stack([sample["aux"] for sample in batched_samples], dim=0),
-            num_classes=20
-        )
+        batch["aux"] = torch.stack([sample["aux"] for sample in batched_samples], dim=0)
     for k in batched_samples[0]:
         if k not in batch:
             batch[k] = [sample[k] for sample in batched_samples]
@@ -97,8 +94,6 @@ class GroupCollateFnClass:
             if len(batch[key]) == 0:
                 return {}
             batch[key] = torch.stack(batch[key], dim=0)
-            if key == "aux":
-                batch[key] = nn.functional.one_hot(batch[key], num_classes=20)
         return batch
 
 def build_dataset(args, split="train", include_path=False):
@@ -133,6 +128,16 @@ def build_dataset(args, split="train", include_path=False):
         elif args.dataset == "cifar100" or \
             args.dataset == "cifar100_pairs":
             dataset = CIFAR100(train_transform=simple_transform(args),
+                            val_transform=minimum_transform(args),
+                            minimum_transform=minimum_transform(args),
+                            split=split,
+                            subset=args.data_subset if split == 'train' else 1.0,
+                            group=args.data_group,
+                            unbalanced=args.unbalanced,
+                            include_path=include_path)
+            dataset.collate_fn = collate_fn
+        elif args.dataset == "cifar100_a":
+            dataset = CIFAR100_A(train_transform=simple_transform(args),
                             val_transform=minimum_transform(args),
                             minimum_transform=minimum_transform(args),
                             split=split,

@@ -48,29 +48,16 @@ def get_args_parser():
     parser.add_argument('--num_workers', default=5, type=int)
     parser.add_argument('--data_subset', default=1.0, type=float,
                         help='subset of data to use')
+    parser.add_argument('--latent_path', default=None, type=str)
     
     # evaluation
     parser.add_argument('--ckpt', default='', type=str,
                         help="checkpoint path of model to evaluate")
     return parser
 
-def get_latent_path(args):
-    path = None
-    if args.dataset == "cifar100":
-        if args.unbalanced:
-            path = config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
-        else:
-            path = config("CIFAR100_TRAIN_LATENT_PATH")
-    elif args.dataset == "celebA":
-        if args.unbalanced:
-            path = config("CELEB_A_TRAIN_UNBALANCED_LATENT_PATH")
-        else:
-            path = config("CELEB_A_TRAIN_LATENT_PATH")
-    else:
-        raise NotImplementedError()
-    return os.path.join(config("DATASET_ROOT"), path)
-
 def main(args):
+    if args.latent_path is None:
+        raise ValueError("latent path required")
     device = torch.device(args.device)
     # fix seed for reproducibility
     seed = args.seed
@@ -92,7 +79,7 @@ def main(args):
     model.fc = nn.Identity()
     model.to(device)
 
-    output_path = get_latent_path(args)
+    output_path = args.latent_path
     generate(dataloader=dataloader,
              model=model,
              output_path=output_path)

@@ -18,11 +18,16 @@ def train_one_epoch(model: DRDJVanilla,
         x1 = sample["image_1"].to(device, non_blocking=True)
         x2 = sample["image_2"].to(device, non_blocking=True)
         aux = sample["aux"].to(device, non_blocking=True)
+        if "dist_weight" in sample:
+            dist_weight = sample["dist_weight"].to(device, non_blocking=True)
+        else:
+            dist_weight = None
         labels = sample["label"].to(device, non_blocking=True)
         output, batch_loss = model.forward_loss(x=x1,
                                                 x_other=x2,
                                                 aux=aux,
                                                 labels=labels,
+                                                dist_weight=dist_weight,
                                                 include_max_term=include_max_term,
                                                 include_norm=include_norm)
         batch_loss.backward()
@@ -36,6 +41,14 @@ def train_one_epoch(model: DRDJVanilla,
         batch_acc = torch.sum(pred == labels) / len(labels)
         acc += batch_acc.item()
         batch_cnt += 1
+    top_aux_weight_per_class = torch.argsort(input=model.fc.weight[:, -20:], dim=1, descending=True)[:, 0]
+    classes_per_aux = {}
+    for i, aux in enumerate(top_aux_weight_per_class):
+        aux = aux.item()
+        if aux not in classes_per_aux:
+            classes_per_aux[aux] = []
+        classes_per_aux[aux].append(i)
+    print(classes_per_aux)
     # print(f"pred = {pred}")
     # print(f"labels = {labels}")
     return loss / batch_cnt, acc / batch_cnt

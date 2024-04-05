@@ -58,7 +58,7 @@ do
   sleep 1
 done
 
-PROJECT_NAME='drdj_deep_aux_resnet50_cifar100_pairs'
+PROJECT_NAME='drdj_resnet50_cifar100_pairs'
 
 export PATH=$PATH:$HOME/miniconda3/bin
 

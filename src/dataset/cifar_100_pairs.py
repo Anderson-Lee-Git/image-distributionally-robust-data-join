@@ -15,6 +15,7 @@ class CIFAR100Pairs(Dataset):
         self.unbalanced = unbalanced
         self.path = self._get_path()
         self.md = self._get_md()
+        self._normalize_dist_weight()
         self.subset = subset
     
     def __len__(self):
@@ -28,6 +29,7 @@ class CIFAR100Pairs(Dataset):
         image_2 = PIL.Image.open(path_2).convert("RGB")
         label = row["label_1"]  # label 2 is only for study usage
         aux = row["aux_2"]
+        dist_weight = row["dist_weight"]
         if self.transform:
             image_1 = self.transform(image_1)
             image_2 = self.transform(image_2)
@@ -35,6 +37,7 @@ class CIFAR100Pairs(Dataset):
             "image_1": image_1,
             "image_2": image_2,
             "aux": aux,
+            "dist_weight": dist_weight,
             "label": label
         }
         return sample
@@ -48,6 +51,16 @@ class CIFAR100Pairs(Dataset):
             return pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_PAIRS_UNBALANCED_META_PATH")))
         else:
             return pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CIFAR100_PAIRS_META_PATH")))
+        
+    def _normalize_dist_weight(self):
+        dist = self.md["dist"].to_numpy()
+        normalized_dist = dist / dist.sum()
+        weight = 1 / normalized_dist
+        normalized_weight = weight / weight.sum()
+        self.md.insert(loc=len(self.md.columns),
+                       column="dist_weight",
+                       value=normalized_weight,
+                       allow_duplicates=True)
 
     def _get_path(self):
         return os.path.join(config("DATASET_ROOT"), config("CIFAR100_TRAIN_PATH"))
@@ -63,5 +76,6 @@ class CIFAR100Pairs(Dataset):
             torch.stack([torch.tensor(sample["aux"]) for sample in batched_samples], dim=0),
             num_classes=20
         )
+        batch["dist_weight"] = torch.stack([torch.tensor(sample["dist_weight"]) for sample in batched_samples], dim=0)
         return batch
     
