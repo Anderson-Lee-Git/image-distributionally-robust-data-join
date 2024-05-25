@@ -25,12 +25,14 @@ class DRDJVanilla(nn.Module):
                  embed_dim: int,
                  aux_embed_dim: int,
                  objective: str,
+                 dist_weight: bool,
                  args) -> None:
         super(DRDJVanilla, self).__init__()
         self.backbone = backbone
         self.num_classes = num_classes
         self.embed_dim = embed_dim
         self.aux_embed_dim = aux_embed_dim
+        self.dist_weight = dist_weight
         self.args = args
         self.encoder = self._build_backbone()
         self.objective = objective
@@ -77,10 +79,8 @@ class DRDJVanilla(nn.Module):
         aux_embed = aux.view(B, self.aux_embed_dim).to(torch.float32)
         embed = self.encoder(x)
         embed_other = self.encoder(x_other)
-        if dist_weight is None:
+        if dist_weight is None or not self.dist_weight:
             dist_weight = torch.ones(B).cuda()
-        # TODO
-        dist_weight = torch.ones(B).cuda()
         if self.objective == "P":
             output = self.fc(torch.concat([embed, aux_embed], dim=1)).cuda()
         else:

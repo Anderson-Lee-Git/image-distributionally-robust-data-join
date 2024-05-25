@@ -31,7 +31,7 @@ class CelebA(Dataset):
         self._adapt_transforms()
     
     def __len__(self):
-        return len(self.md)
+        return int(len(self.md) * self.subset)
     
     def __getitem__(self, index):
         row = self.md.iloc[index]
@@ -42,6 +42,7 @@ class CelebA(Dataset):
             aux = torch.tensor(0)
         if label == -1:
             label = torch.tensor(0)
+        aux = torch.nn.functional.one_hot(aux, num_classes=2)
         image = PIL.Image.open(img_path)
         image = image.convert("RGB")
         if self.split == 'train':
@@ -92,7 +93,6 @@ class CelebA(Dataset):
     def _get_md(self):
         if self.split == 'train':
             if self.unbalanced:
-                assert os.path.exists(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_UNBALANCED_META_PATH")))
                 df = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_UNBALANCED_META_PATH")))
             else:
                 df = pd.read_csv(os.path.join(config("DATASET_ROOT"), config("CELEB_A_TRAIN_META_PATH")))

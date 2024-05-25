@@ -83,7 +83,8 @@ class GroupCollateFnClass:
         if "original_image" in batched_samples[0]:
             batch["original_image"] = []
         for sample in batched_samples:
-            if sample["aux"] == GroupCollateFnClass.group[0] and \
+            aux = torch.argmax(sample["aux"])
+            if aux == GroupCollateFnClass.group[0] and \
                 sample["label"] == GroupCollateFnClass.group[1]:
                 batch["image"].append(sample["image"])
                 batch["label"].append(sample["label"])

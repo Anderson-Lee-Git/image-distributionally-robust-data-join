@@ -3,7 +3,7 @@ from tqdm import tqdm
 
 def train_one_epoch(X_P, X_A, y_P, d_X, matchings, 
                     model_P, model_A, optimizer_P, optimizer_A, batch_size, device):
-    loop = tqdm(total=len(matchings) // batch_size + 1, leave=True, position=0)
+    # loop = tqdm(total=len(matchings) // batch_size + 1, leave=True, position=0)
     correct_A = correct_P = 0
     for i in range(0, len(matchings), batch_size):
         if i + batch_size < len(matchings):
@@ -25,8 +25,8 @@ def train_one_epoch(X_P, X_A, y_P, d_X, matchings,
         optimizer_A.zero_grad()
         loss_A.backward()
         optimizer_A.step()
-        loop.set_description(f"loss_P={loss_P.item():.3f}, loss_A={loss_A.item():.3f}")
-        loop.update(1)
+        # loop.set_description(f"loss_P={loss_P.item():.3f}, loss_A={loss_A.item():.3f}")
+        # loop.update(1)
         # update accuracy
         correct_P += torch.count_nonzero(torch.argmax(output_P, dim=1) == labels)
         correct_A += torch.count_nonzero(torch.argmax(output_A, dim=1) == labels)
@@ -35,7 +35,7 @@ def train_one_epoch(X_P, X_A, y_P, d_X, matchings,
     return acc_P, acc_A
 
 def evaluate(X_test, y_test, d_X, model, batch_size, device):
-    loop = tqdm(total=len(X_test) // batch_size + 1, leave=True, position=0)
+    # loop = tqdm(total=len(X_test) // batch_size + 1, leave=True, position=0)
     correct = 0
     for i in range(0, len(X_test), batch_size):
         if i + batch_size < len(X_test):
@@ -51,6 +51,6 @@ def evaluate(X_test, y_test, d_X, model, batch_size, device):
         output = model.forward_eval(x, aux)
         # update accuracy
         correct += torch.count_nonzero(torch.argmax(output, dim=1) == labels)
-        loop.update(1)
+        # loop.update(1)
     acc = correct / len(X_test)
     return acc

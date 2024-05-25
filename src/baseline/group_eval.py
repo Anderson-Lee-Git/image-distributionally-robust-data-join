@@ -73,7 +73,6 @@ def main(args):
     print("Set up dataset and dataloader")
     dataset_test = build_dataset(split='test', args=args)
     print(dataset_test)
-    # sampler_train = torch.utils.data.RandomSampler(dataset_train)
     data_loader_test = DataLoader(dataset_test,
                                  batch_size=args.batch_size,
                                  num_workers=args.num_workers,

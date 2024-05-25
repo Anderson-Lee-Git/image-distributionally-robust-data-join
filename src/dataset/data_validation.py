@@ -5,7 +5,7 @@ sys.path.insert(0, ".")
 
 import PIL
 import torch
-from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data import DataLoader
 import pandas as pd
 from torchvision import transforms
 from cifar_100_pairs import CIFAR100Pairs
@@ -37,8 +37,7 @@ dataset = CelebA(train_transform=transform,
                    minimum_transform=transform,
                    val_transform=transform,
                     subset=1.0)
-sampler_train = RandomSampler(dataset)
-dataloader = DataLoader(dataset, batch_size=20, sampler=sampler_train, collate_fn=collate_fn)
+dataloader = DataLoader(dataset, batch_size=20, shuffle=True, collate_fn=collate_fn)
 for i, sample in enumerate(dataloader):
     images = sample["image"]
     labels = sample["label"]

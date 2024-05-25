@@ -42,7 +42,7 @@ sweep_config_path = config("SWEEP_CONFIG_BASE_PATH")
 num_runs = 10
 
 # default commands and args
-epochs = 8
+epochs = 30
 batch_size = 48
 input_size = 224
 num_workers = 5
@@ -69,6 +69,7 @@ base_flags = [
     f"--data_group={data_group}",
     f"--num_classes={num_classes}",
     f"--aux_embed_dim={aux_embed_dim}",
+    # "--dist_weight",
     # "--unbalanced",
     "${args}"  # use args from configuration as command arguments
 ]
@@ -78,18 +79,18 @@ sweep_configuration = {
     "metric": {"goal": "maximize", "name": "val_acc (P)"},
     "parameters":
     {
-        "lr": {"max": 1e-3, "min": 1e-5},
-        "alpha_lr": {"max": 1e-4, "min": 1e-5},
-        "cls_lr": {"max": 1e-3, "min": 1e-5},
-        "r_a": {"values": [0.0]},
-        "r_p": {"values": [0.0]},
+        "lr": {"values": [2e-5]},
+        "alpha_lr": {"values": [0.00015]},
+        "cls_lr": {"values": [0.00025]},
+        "r_a": {"values": [0.0, 1.0, 2.0, 3.0]},
+        "r_p": {"values": [0.0, 1.0, 2.0, 3.0]},
         "lambda_1": {"values": [1.0]},
         "lambda_2": {"values": [1.0]},
         "lambda_3": {"values": [1.0]},
-        "kappa_a": {"max": 5.0, "min": 1.0},
-        "kappa_p": {"max": 5.0, "min": 1.0},
-        "weight_decay": {"max": 3e-4, "min": 1e-5},
-        "exp_lr_gamma": {"values": [0.99]}
+        "kappa_a": {"values": [4.0]},
+        "kappa_p": {"values": [4.0]},
+        "weight_decay": {"values": [4e-5]},
+        "exp_lr_gamma": {"values": [0.95]}
     },
     "command": base_flags
 }

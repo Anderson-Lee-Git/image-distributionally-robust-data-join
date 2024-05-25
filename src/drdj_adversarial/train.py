@@ -99,8 +99,8 @@ def main(args):
     dataset_val = build_dataset(args=args, split="val")
     print(dataset_train)
     print(dataset_val)
-    sampler_train = torch.utils.data.RandomSampler(dataset_train)
-    data_loader_train = DataLoader(dataset_train, sampler=sampler_train,
+    data_loader_train = DataLoader(dataset_train, 
+                                   shuffle=True,
                                    batch_size=args.batch_size,
                                    num_workers=args.num_workers,
                                    pin_memory=True)

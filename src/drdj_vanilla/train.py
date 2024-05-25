@@ -40,6 +40,7 @@ def get_args_parser():
     parser.add_argument('--embed_dim', default=2048, type=int)
     parser.add_argument('--aux_embed_dim', default=20, type=int)
     parser.add_argument('--freeze_params', default=False, type=bool)
+    parser.add_argument('--dist_weight', action="store_true", default=False)
 
     # Optimizer parameters
     parser.add_argument('--weight_decay', type=float, default=0.05,
@@ -86,7 +87,7 @@ def get_args_parser():
     return parser
 
 def get_optimizer(model: DRDJVanilla, args):
-    optimizer = torch.optim.Adam(model.encoder.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    optimizer = torch.optim.AdamW(model.encoder.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     optimizer.add_param_group({
         'params': model.fc.parameters(),
         'lr': args.cls_lr,
@@ -114,6 +115,7 @@ def get_model(n_a, n_p, objective, args):
                         embed_dim=args.embed_dim,
                         aux_embed_dim=args.aux_embed_dim,
                         objective=objective,
+                        dist_weight=args.dist_weight,
                         args=args)
     return model
 

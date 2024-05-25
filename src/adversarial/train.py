@@ -6,6 +6,7 @@ import sys
 import wandb
 import numpy as np
 import torch
+from torch.nn import CrossEntropyLoss
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import ExponentialLR
@@ -14,11 +15,11 @@ from decouple import Config, RepositoryEnv
 config = Config(RepositoryEnv(".env"))
 sys.path.insert(0, config("REPO_ROOT"))
 
-from models import build_resnet
+from models import Adversarial
 from engine import train_one_epoch, evaluate
 from utils.logs import log_stats, count_parameters
 from utils.args_utils import get_wandb_args
-from dataset.datasets import build_dataset
+from dataset.datasets import build_dataset, GroupCollateFnClass
 
 def get_args_parser():
     parser = argparse.ArgumentParser('baseline training', add_help=False)
@@ -28,9 +29,10 @@ def get_args_parser():
 
     # Model parameters
     parser.add_argument('--model', default='resnet50', type=str)
+    parser.add_argument('--beta', type=float, default=0.1)
 
     # Optimizer parameters
-    parser.add_argument('--weight_decay', type=float, default=0.05,
+    parser.add_argument('--weight_decay', type=float, default=0.00001,
                         help='weight decay (default: 0.05)')
     parser.add_argument('--lr', type=float, default=None, metavar='LR',
                         help='learning rate (absolute lr)')
@@ -102,16 +104,27 @@ def main():
 
     # set up dataset and data loaders
     print("Set up dataset and dataloader")
-    dataset_train = build_dataset(split='train', args=args)
+    args.data_group = 1
+    target_dataset_train = build_dataset(split='train', args=args)
+    args.data_group = 2
+    attr_dataset_train = build_dataset(split='train', args=args)
     dataset_val = build_dataset(split="val", args=args)
-    print(dataset_train)
+    print(target_dataset_train)
+    print(attr_dataset_train)
     print(dataset_val)
-    data_loader_train = DataLoader(dataset_train, 
-                                   shuffle=True,
-                                   batch_size=args.batch_size,
-                                   num_workers=args.num_workers,
-                                   pin_memory=True)
-    data_loader_val = DataLoader(dataset_val,
+    target_dataloader_train = DataLoader(target_dataset_train, 
+                                         shuffle=True,
+                                         batch_size=args.batch_size,
+                                         num_workers=args.num_workers,
+                                         collate_fn=target_dataset_train.collate_fn,
+                                         pin_memory=True)
+    attr_dataloader_train = DataLoader(attr_dataset_train, 
+                                       shuffle=True,
+                                       batch_size=args.batch_size,
+                                       num_workers=args.num_workers,
+                                       collate_fn=attr_dataset_train.collate_fn,
+                                       pin_memory=True)
+    dataloader_val = DataLoader(dataset_val,
                                  batch_size=args.batch_size,
                                  num_workers=args.num_workers,
                                  pin_memory=True)
@@ -120,28 +133,55 @@ def main():
         os.makedirs(args.log_dir, exist_ok=True)
         log_writer = SummaryWriter(log_dir=args.log_dir)
     # initialize model
-    print(f"Load model: {args.model}")
-    model = build_resnet(num_classes=args.num_classes, pretrained=True, args=args)
+    model = Adversarial(embed_dim=2048, num_target_classes=2, num_attr_classes=2, beta=args.beta, args=args)
     model.to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     lr_scheduler = ExponentialLR(optimizer, gamma=args.exp_lr_gamma)
-    criterion = torch.nn.CrossEntropyLoss()
     print(f"Number of params: {count_parameters(model)}")
+    # groups
+    groups = np.transpose([np.tile(range(2), args.num_classes),
+                           np.repeat(range(args.num_classes), 2)])
     # train loop
     print(f"Start training for {args.epochs} epochs")
-
+    criterion = CrossEntropyLoss()
     best_acc = 0
+    target_flag = True
     for epoch in range(args.epochs):
         print(f"Epoch {epoch+1}")
-        train_loss, train_acc = train_one_epoch(model=model, data_loader=data_loader_train,
-                                                criterion=criterion,
-                                                optimizer=optimizer,
-                                                device=device,
-                                                args=args)
-        val_loss, val_acc = evaluate(model=model, data_loader=data_loader_val,
-                                     criterion=criterion,
-                                     device=device,
-                                     args=args)
+        option = "target" if target_flag else "attr"
+        if option == "target":
+            train_loss, train_acc = train_one_epoch(model=model, 
+                                                    dataloader=target_dataloader_train,
+                                                    optimizer=optimizer,
+                                                    device=device,
+                                                    option=option,
+                                                    args=args)
+        else:
+            train_loss, train_acc = train_one_epoch(model=model, 
+                                                    dataloader=attr_dataloader_train,
+                                                    optimizer=optimizer,
+                                                    device=device,
+                                                    option=option,
+                                                    args=args)
+        for group in groups:
+            GroupCollateFnClass.group = (torch.tensor(group[0]), torch.tensor(group[1]))
+            dataset_val.collate_fn = GroupCollateFnClass.group_filter_collate_fn
+            dataloader_val = DataLoader(dataset_val,
+                                        batch_size=args.batch_size,
+                                        num_workers=args.num_workers,
+                                        collate_fn=dataset_val.collate_fn,
+                                        pin_memory=True)
+            val_loss, val_acc = evaluate(model=model,
+                                        dataloader=dataloader_val,
+                                        criterion=criterion,
+                                        device=device,
+                                        args=args)
+            log_stats(stats={f"val_loss ({group[0]}, {group[1]})": val_loss,
+                             f"val_acc ({group[0]}, {group[1]})": val_acc},
+                    log_writer=log_writer,
+                    epoch=epoch,
+                    args=args,
+                    commit=False)
         # save model
         if args.output_dir and (epoch % 20 == 0 or epoch + 1 == args.epochs):
             to_save = {
@@ -162,16 +202,18 @@ def main():
             path = os.path.join(args.output_dir, f"checkpoint-best.pth")
             torch.save(to_save, path)
         # log stats
-        log_stats(stats={"train_loss": train_loss,
-                         "train_acc": train_acc,
-                         "val_loss": val_loss,
-                         "val_acc": val_acc,
+        log_stats(stats={f"train_loss ({option})": train_loss,
+                         f"train_acc ({option})": train_acc,
+                        #  "val_loss": val_loss,
+                        #  "val_acc": val_acc,
                          "lr": lr_scheduler.get_last_lr()[0],
                          "epoch": epoch},
                   log_writer=log_writer,
                   epoch=epoch,
                   args=args)
         lr_scheduler.step()
+        if epoch % 2 == 0:
+            target_flag = not target_flag
 
 if __name__ == "__main__":
     args = get_args_parser()

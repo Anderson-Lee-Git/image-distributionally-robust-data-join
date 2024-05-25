@@ -22,6 +22,9 @@ def get_args_parser():
     parser.add_argument('--dim', default=None, type=int)
     parser.add_argument('--k', default=4, type=int, help="k nearest neighbor")
     parser.add_argument('--cached_db', action='store_true', default=True)
+    # path
+    parser.add_argument('--latent_path', default=None, type=str)
+    parser.add_argument('--store_path', default=None, type=str)
     return parser
 
 def get_metadata_path(args):
@@ -39,56 +42,6 @@ def get_metadata_path(args):
     if path is None:
         raise NotImplementedError()
     return os.path.join(config("DATASET_ROOT"), path)
-
-def get_store_path(args):
-    path = None
-    if args.dataset == "cifar100":
-        if args.unbalanced:
-            path = config("CIFAR100_PAIRS_UNBALANCED_META_PATH")
-        else:
-            path = config("CIFAR100_PAIRS_META_PATH")
-    elif args.dataset == "celebA":
-        if args.unbalanced:
-            path = config("CELEB_A_PAIRS_UNBALANCED_META_PATH")
-        else:
-            path = config("CELEB_A_PAIRS_META_PATH")
-    if path is None:
-        raise NotImplementedError()
-    return os.path.join(config("DATASET_ROOT"), path)
-
-def get_latent_path(args):
-    path = None
-    if args.dataset == "cifar100":
-        if args.unbalanced:
-            path = config("CIFAR100_TRAIN_UNBALANCED_LATENT_PATH")
-        else:
-            path = config("CIFAR100_TRAIN_LATENT_PATH")
-    elif args.dataset == "celebA":
-        if args.unbalanced:
-            path = config("CELEB_A_TRAIN_UNBALANCED_LATENT_PATH")
-        else:
-            path = config("CELEB_A_TRAIN_LATENT_PATH")
-    if path is None:
-        raise NotImplementedError()
-    return os.path.join(config("DATASET_ROOT"), path)
-
-"""
-Obsolete
-"""
-def get_db(md, db_file, path_root, dim):
-    print(f"Number of rows in metadata: {len(md)}")
-    if not os.path.exists(os.path.join(config("REPO_ROOT"), f"generate_pairs/{db_file}")):
-        xb = np.ndarray(shape=(len(md), dim))
-        for idx in tqdm(range(len(md))):
-            row = md.iloc[idx]
-            path = os.path.join(path_root, str(row["label"]))
-            path = os.path.join(path, str(row["id"][:row["id"].find(".")]) + ".npy")
-            xb[idx] = np.load(path).reshape(-1,)
-        np.save(os.path.join(config("REPO_ROOT"), f"generate_pairs/{db_file}"), xb)
-    else:
-        print(f"[INFO] Load from npy")
-        xb = np.load(os.path.join(config("REPO_ROOT"), f"generate_pairs/{db_file}"))
-    return xb
 
 def get_db_from_pickle(md, db_file, pickle_path, dim, dataset, use_cache=False):
     print(f"Number of rows in metadata: {len(md)}")
@@ -132,10 +85,12 @@ def generate_pairs(query_md, target_md, query_db, target_db, dim, k, dataset):
 
 def main(args):
     # load meta data
+    assert args.latent_path is not None
+    assert args.store_path is not None
     md = pd.read_csv(get_metadata_path(args))
     gp_1 = pd.DataFrame(md.loc[md["group"] == 1])
     gp_2 = pd.DataFrame(md.loc[md["group"] == 2])
-    pickle_path = get_latent_path(args)
+    pickle_path = args.latent_path
     dim = args.dim
     k = args.k
     db_file_1 = f"{'unb_' if args.unbalanced else ''}{args.dataset}_dim_{dim}_k_{k}_group_1.npy"
@@ -197,8 +152,7 @@ def main(args):
     # attr: label (number)
     print(res_df.iloc[:10])
     print(f"total number of pairs: {len(res_df)}")
-    res_df.to_csv(get_store_path(args))
-    # res_df.to_csv("/gscratch/jamiemmt/andersonlee/image-distributionally-robust-data-join/src/generate_pairs/test_pairs.csv")
+    res_df.to_csv(args.store_path)
 
 if __name__ == "__main__":
     args = get_args_parser()
